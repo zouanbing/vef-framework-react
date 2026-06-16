@@ -29,10 +29,10 @@ export interface OptionItem<T extends string> {
 export const operatorOptions: Array<OptionItem<LinkageOperator>> = [
   { value: "eq", label: "等于" },
   { value: "ne", label: "不等于" },
-  { value: "gt", label: ">" },
-  { value: "lt", label: "<" },
-  { value: "gte", label: "≥" },
-  { value: "lte", label: "≤" },
+  { value: "gt", label: "大于" },
+  { value: "lt", label: "小于" },
+  { value: "gte", label: "大于等于" },
+  { value: "lte", label: "小于等于" },
   { value: "contains", label: "包含" },
   { value: "empty", label: "为空" },
   { value: "notEmpty", label: "不为空" }
