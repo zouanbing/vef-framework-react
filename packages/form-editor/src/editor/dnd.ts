@@ -166,7 +166,7 @@ function isDropZoneData(value: unknown): value is DropZoneData {
   }
 }
 
-function isEditorDragData(value: unknown): value is EditorDragData {
+export function isEditorDragData(value: unknown): value is EditorDragData {
   if (typeof value !== "object" || value === null) {
     return false;
   }

@@ -4,12 +4,13 @@ import type { ReactElement } from "react";
 import type { Block, ContainerNode, FlexAlign, FlexJustify, FlexNode, GapScale, GridNode, SectionNode, SubformNode, TableSubform, TabsNode } from "../../types";
 
 import { css } from "@emotion/react";
-import { Button, globalCssVars, Input, InputNumber, Select, Switch } from "@vef-framework-react/components";
+import { Button, globalCssVars, Input, InputNumber, ScrollArea, Select, Switch } from "@vef-framework-react/components";
 
 import { createId } from "../../engine/ids";
 import { EditorIcon } from "../../icons";
-import { useFormEditorStoreApi } from "../../store/form-store";
+import { useFormEditorStore, useFormEditorStoreApi } from "../../store/form-store";
 import { ROW_COLS } from "../../types";
+import { panelBodyCss } from "../styles";
 import { BlockLayoutSection } from "./block-layout-section";
 import { ContainerLinkageSection } from "./entries/linkage/container-linkage-section";
 import { PanelHeader } from "./panel-header";
@@ -132,18 +133,20 @@ export function ContainerProperties({
     <>
       <PanelHeader icon={<EditorIcon name={meta.icon} />} subtitle={node.id} title={meta.name} onClose={onClose} />
 
-      <div css={bodyCss}>
-        <BlockLayoutSection node={node} parent={parent} />
-        {node.type === "section" ? <SectionEditor section={node} update={update} /> : null}
-        {node.type === "tabs" ? <TabsEditor tabs={node} update={update} /> : null}
-        {node.type === "subform" ? <SubformEditor subform={node} update={update} /> : null}
-        {node.type === "flex" ? <FlexEditor flex={node} update={update} /> : null}
-        {node.type === "grid" ? <GridEditor grid={node} update={update} /> : null}
+      <ScrollArea css={panelBodyCss}>
+        <div css={bodyCss}>
+          <BlockLayoutSection node={node} parent={parent} />
+          {node.type === "section" ? <SectionEditor section={node} update={update} /> : null}
+          {node.type === "tabs" ? <TabsEditor tabs={node} update={update} /> : null}
+          {node.type === "subform" ? <SubformEditor subform={node} update={update} /> : null}
+          {node.type === "flex" ? <FlexEditor flex={node} update={update} /> : null}
+          {node.type === "grid" ? <GridEditor grid={node} update={update} /> : null}
 
-        <div css={linkageDividerCss}>
-          <ContainerLinkageSection node={node} />
+          <div css={linkageDividerCss}>
+            <ContainerLinkageSection node={node} />
+          </div>
         </div>
-      </div>
+      </ScrollArea>
     </>
   );
 }
@@ -256,6 +259,12 @@ const SUBFORM_TABLE_SIZE_OPTIONS: Array<{ label: string; value: NonNullable<Tabl
 ];
 
 function SubformEditor({ subform, update }: { subform: SubformNode; update: Update }): ReactElement {
+  // The `table` layout is a PC-only concept — mobile renders every subform as a
+  // free-layout stack (the runtime degrades `table` to stack there). So mobile
+  // design mode hides the layout control and its table-only density field, and
+  // shows the stack gap instead: what you configure is what mobile renders.
+  const showLayout = useFormEditorStore(state => state.device) === "pc";
+
   // Shared base-field patch. Spreads only fields common to both variants, so it
   // never touches the discriminant or a variant-specific prop.
   const patch = (next: Partial<Pick<SubformNode, "label" | "addLabel" | "minRows" | "maxRows">>, coalesceKey?: string): void => {
@@ -306,21 +315,25 @@ function SubformEditor({ subform, update }: { subform: SubformNode; update: Upda
         />
       </div>
 
-      <div css={fieldCss}>
-        <span css={labelCss}>布局</span>
+      {showLayout
+        ? (
+            <div css={fieldCss}>
+              <span css={labelCss}>布局</span>
 
-        <Select<SubformNode["variant"]>
-          options={SUBFORM_VARIANT_OPTIONS}
-          value={subform.variant}
-          onChange={setVariant}
-        />
+              <Select<SubformNode["variant"]>
+                options={SUBFORM_VARIANT_OPTIONS}
+                value={subform.variant}
+                onChange={setVariant}
+              />
 
-        <span css={hintCss}>
-          {subform.variant === "table"
-            ? "表格：每行内联编辑，模板字段即为列（适合规整的多行录入）"
-            : "自由布局：每行铺开全部字段，支持嵌套与按行联动"}
-        </span>
-      </div>
+              <span css={hintCss}>
+                {subform.variant === "table"
+                  ? "表格：每行内联编辑，模板字段即为列（适合规整的多行录入）"
+                  : "自由布局：每行铺开全部字段，支持嵌套与按行联动"}
+              </span>
+            </div>
+          )
+        : null}
 
       <div css={fieldCss}>
         <span css={labelCss}>"新增" 按钮文案</span>
@@ -372,9 +385,8 @@ function SubformEditor({ subform, update }: { subform: SubformNode; update: Upda
         />
       </div>
 
-      {subform.variant === "stack"
-        ? <ContainerGapField value={subform.gap} onChange={setGap} />
-        : (
+      {showLayout && subform.variant === "table"
+        ? (
             <div css={fieldCss}>
               <span css={labelCss}>表格密度</span>
 
@@ -384,7 +396,10 @@ function SubformEditor({ subform, update }: { subform: SubformNode; update: Upda
                 onChange={setSize}
               />
             </div>
-          )}
+          )
+        : subform.variant === "stack"
+          ? <ContainerGapField value={subform.gap} onChange={setGap} />
+          : null}
     </>
   );
 }

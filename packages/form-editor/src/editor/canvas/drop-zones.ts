@@ -13,6 +13,15 @@ import { dropZoneId } from "../dnd";
 export type ZoneOrientation = "horizontal" | "vertical";
 
 /**
+ * Per-source acceptance test for a drop zone. Receives the dragged source (its
+ * `data` carries the {@link import("../dnd").EditorDragData}) and decides whether
+ * the zone takes it. Used by the `table` subform to accept only column-eligible
+ * fields; a descriptor without one accepts any field draggable (the default
+ * {@link import("../dnd").FIELD_DRAG_TYPE} type match).
+ */
+export type DropZoneAccept = (source: { data?: unknown }) => boolean;
+
+/**
  * One precise insertion point the render path turns into a single `useDroppable`
  * plus a single `<DropIndicator>`. `id` and `data` are minted from the same
  * {@link dropZoneId} source the drag-end handler reads, so the rendered droppable
@@ -25,6 +34,11 @@ export interface DropZoneDescriptor {
   data: DropZoneData;
   priority: CollisionPriority;
   orientation: ZoneOrientation;
+  /**
+   * Optional per-source acceptance test. Omitted means "accept any field
+   * draggable" — the default type match in {@link import("./canvas").Zone}.
+   */
+  accept?: DropZoneAccept;
 }
 
 /**

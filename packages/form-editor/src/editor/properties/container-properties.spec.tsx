@@ -1,14 +1,28 @@
+import type { ScrollAreaProps } from "@vef-framework-react/components";
 import type { ReactElement } from "react";
 
 import type { FormEditorStoreApi } from "../../store/form-store";
 import type { FormSchema, SubformNode } from "../../types";
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 
 import { FormEditorStoreProvider, useFormEditorStore, useFormEditorStoreApi } from "../../store/form-store";
 import { ContainerProperties } from "./container-properties";
+
+vi.mock("@vef-framework-react/components", async importOriginal => {
+  const actual = await importOriginal<typeof import("@vef-framework-react/components")>();
+
+  return {
+    ...actual,
+    ScrollArea: ({ children, ...props }: ScrollAreaProps) => (
+      <div data-testid="container-properties-scroll-area" {...props}>
+        {children}
+      </div>
+    )
+  };
+});
 
 const SUBFORM_ID = "Sub_1";
 
@@ -123,6 +137,38 @@ describe("ContainerProperties", () => {
 
       expect(screen.getByText("联动规则")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /新建联动规则/ })).toBeInTheDocument();
+    });
+
+    it("renders the long property body inside the scroll viewport", () => {
+      setup(subformNode());
+
+      expect(screen.getByTestId("container-properties-scroll-area")).toHaveTextContent("联动规则");
+    });
+
+    it("shows the layout control in PC design mode", () => {
+      setup(subformNode());
+
+      expect(screen.getByText("布局")).toBeInTheDocument();
+    });
+
+    it("hides the layout control in mobile design mode", () => {
+      const api = setup(subformNode());
+
+      act(() => {
+        api.getState().setDevice("mobile");
+      });
+
+      expect(screen.queryByText("布局")).not.toBeInTheDocument();
+    });
+
+    it("keeps the free-layout gap control in mobile design mode", () => {
+      const api = setup(subformNode());
+
+      act(() => {
+        api.getState().setDevice("mobile");
+      });
+
+      expect(screen.getByText("子元素间距")).toBeInTheDocument();
     });
   });
 });

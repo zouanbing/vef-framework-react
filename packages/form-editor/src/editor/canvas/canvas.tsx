@@ -1,10 +1,10 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 
 import type { EditorViewMode } from "../../store/form-store";
-import type { Block, ChromeTabItem, FlexNode, FormField, FormSchema, GapScale, GridNode, PresentationDevice, SectionNode, SubformNode, TabsNode } from "../../types";
+import type { Block, ChromeTabItem, FlexNode, FormField, FormSchema, GapScale, GridNode, KeyedFormField, PresentationDevice, SectionNode, SubformNode, TableSubform, TabsNode } from "../../types";
 import type { DropZoneData } from "../dnd";
 import type { PreviewRuntime } from "../preview-runtime-context";
-import type { DropZoneDescriptor } from "./drop-zones";
+import type { DropZoneAccept, DropZoneDescriptor } from "./drop-zones";
 
 import { css } from "@emotion/react";
 import { Flex, globalCssVars, Stack } from "@vef-framework-react/components";
@@ -13,6 +13,7 @@ import { Activity, createContext, lazy, memo, Suspense, use, useMemo, useState }
 
 import { MobileScope } from "../../components/mobile/scope";
 import { assertNever } from "../../engine/assert-never";
+import { isValidatableField } from "../../engine/keys";
 import { resolvePresentation } from "../../engine/schema/presentation";
 import { isContainerNode } from "../../engine/schema/walk";
 import { EditorIcon } from "../../icons";
@@ -22,7 +23,7 @@ import { FormFieldRenderer } from "../../render/form-field";
 import { FormRenderer } from "../../render/form-renderer";
 import { gridCellStyle, gridColumnCount, gridContainerStyle } from "../../render/grid-style";
 import { DEFAULT_STACK_GAP, resolveStackGap } from "../../render/stack-style";
-import { useContainerChrome } from "../../store/engine-provider";
+import { useContainerChrome, useFieldRegistry } from "../../store/engine-provider";
 import { useFormEditorStore, useFormEditorStoreApi } from "../../store/form-store";
 import { dropZoneId, fallbackDropZoneId, FIELD_DRAG_TYPE } from "../dnd";
 import { usePreviewRuntime } from "../preview-runtime-context";
@@ -31,6 +32,8 @@ import { DropIndicator } from "./drop-indicator";
 import { inlineSlots, stackGapDescriptor } from "./drop-zones";
 import { MobileSeedState } from "./mobile-seed-state";
 import { PhoneFrame, phoneViewportCss } from "./phone-frame";
+import { isTableColumnField, makeColumnAccept } from "./subform-column-eligibility";
+import { SampleCell } from "./subform-table-cell";
 
 // The JSON workbench drags the whole CodeMirror stack (~1MB unminified) in
 // with it; the split keeps that out of the editor's first paint — the chunk
@@ -373,7 +376,7 @@ function Zone({ descriptor }: { descriptor: DropZoneDescriptor }): ReactElement 
   const { isDropTarget, ref } = useDroppable({
     id: descriptor.id,
     type: FIELD_DRAG_TYPE,
-    accept: FIELD_DRAG_TYPE,
+    accept: descriptor.accept ?? FIELD_DRAG_TYPE,
     collisionPriority: descriptor.priority,
     data: descriptor.data
   });
@@ -398,12 +401,19 @@ function Zone({ descriptor }: { descriptor: DropZoneDescriptor }): ReactElement 
 /**
  * The empty-state drop target for a body with no rows/slots. Its droppable
  * carries the body's append target so a drop lands at the start of the region.
+ * A table subform passes its column `accept` predicate and a column-specific
+ * `hint`, so an empty table invites only field columns.
  */
-function EmptyZone({ disabled, tailTarget }: { disabled: boolean; tailTarget: DropZoneData }): ReactElement {
+function EmptyZone({
+  accept,
+  disabled,
+  hint,
+  tailTarget
+}: { accept?: DropZoneAccept; disabled: boolean; hint?: string; tailTarget: DropZoneData }): ReactElement {
   const { isDropTarget, ref } = useDroppable({
     id: dropZoneId(tailTarget),
     type: FIELD_DRAG_TYPE,
-    accept: FIELD_DRAG_TYPE,
+    accept: accept ?? FIELD_DRAG_TYPE,
     collisionPriority: CollisionPriority.Low,
     disabled,
     data: tailTarget
@@ -412,7 +422,7 @@ function EmptyZone({ disabled, tailTarget }: { disabled: boolean; tailTarget: Dr
   return (
     <div ref={ref} css={[emptyZoneCss, isDropTarget && emptyActiveCss]}>
       <EditorIcon name="mouse-pointer-2" />
-      <span>从左侧拖入组件，或双击组件追加到此处</span>
+      <span>{hint ?? "从左侧拖入组件，或双击组件追加到此处"}</span>
     </div>
   );
 }
@@ -681,6 +691,21 @@ function TabsPreview({ tabs }: { tabs: TabsNode }): ReactElement {
 }
 
 function SubformPreview({ subform }: { subform: SubformNode }): ReactElement {
+  const device = useFormEditorStore(s => s.device);
+
+  // Mirror the runtime `SubformFlow`: the `table` variant renders as a real
+  // column table on PC, but degrades to the stacked layout on mobile (the
+  // runtime `EditableTable` is desktop antd). Keeping the same gate means the
+  // canvas shows exactly what each device renders — drag in columns, see a
+  // table, instead of a stack that silently becomes one at runtime.
+  if (subform.variant === "table" && device === "pc") {
+    return <SubformTablePreview subform={subform} />;
+  }
+
+  return <SubformStackPreview subform={subform} />;
+}
+
+function SubformStackPreview({ subform }: { subform: SubformNode }): ReactElement {
   const chrome = useContainerChrome();
   const tailTarget = useMemo<DropZoneData>(() => {
     return { zone: "container", containerId: subform.id };
@@ -690,6 +715,202 @@ function SubformPreview({ subform }: { subform: SubformNode }): ReactElement {
     <chrome.Subform title={subform.label ?? "子表单"}>
       <StackBody blocks={subform.template} gap={subform.variant === "stack" ? subform.gap : undefined} tailTarget={tailTarget} />
     </chrome.Subform>
+  );
+}
+
+const subformTableCss = css({
+  // No `overflow: hidden`: each column's floating action bar hangs above its
+  // header (`bottom: 100%`), so clipping would swallow it. The outer frame is
+  // drawn by the cells' own borders instead.
+  border: `1px solid ${globalCssVars.colorBorderSecondary}`,
+  borderRadius: globalCssVars.borderRadius
+});
+
+const subformTableActiveCss = css({
+  background: `color-mix(in srgb, ${globalCssVars.colorPrimary} 4%, transparent)`
+});
+
+const subformTableRowCss = css({
+  display: "flex",
+  alignItems: "stretch"
+});
+
+// A column slot: relative so its beside zones straddle its own edges, and a
+// right hairline so the columns read as a ruled table.
+const subformTableColCss = css({
+  position: "relative",
+  flex: "1 1 0",
+  minWidth: 132,
+  borderRight: `1px solid ${globalCssVars.colorBorderSecondary}`
+});
+
+const subformColumnCss = css({
+  display: "flex",
+  flexDirection: "column",
+  height: "100%"
+});
+
+const subformColumnHeaderCss = css({
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  padding: "8px 12px",
+  fontSize: globalCssVars.fontSizeSm,
+  fontWeight: 600,
+  color: globalCssVars.colorText,
+  background: globalCssVars.colorFillQuaternary,
+  borderBottom: `1px solid ${globalCssVars.colorBorderSecondary}`
+});
+
+const subformColumnTitleCss = css({
+  overflow: "hidden",
+  whiteSpace: "nowrap",
+  textOverflow: "ellipsis"
+});
+
+const subformColumnRequiredCss = css({
+  flexShrink: 0,
+  color: globalCssVars.colorError
+});
+
+const subformColumnCellCss = css({
+  flex: 1,
+  padding: 8
+});
+
+// The trailing "drop a column here" affordance — a dashed cell so the table
+// reads as having room for more columns, mirroring the empty-zone invitation.
+const subformAppendColCss = css({
+  display: "flex",
+  flexShrink: 0,
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 4,
+  width: 108,
+  padding: 8,
+  color: globalCssVars.colorTextTertiary,
+  fontSize: globalCssVars.fontSizeSm,
+
+  "& svg": { width: 14, height: 14 }
+});
+
+// A static echo of the runtime add-row button, so the design table reads like
+// the live one. Decorative only — row data is never entered on the canvas.
+const subformAddRowCss = css({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  marginTop: 8,
+  padding: "4px 12px",
+  color: globalCssVars.colorTextTertiary,
+  fontSize: globalCssVars.fontSizeSm,
+  border: `1px dashed ${globalCssVars.colorBorderSecondary}`,
+  borderRadius: globalCssVars.borderRadius,
+
+  "& svg": { width: 14, height: 14 }
+});
+
+/**
+ * Design-time table for a `table`-variant subform: each keyed leaf template
+ * field is a column (header = its label, body = a disabled sample editor), so
+ * the canvas matches the runtime `EditableTable`. Columns are selected, dragged
+ * to reorder, and dropped in just like any block; the column drop zones carry a
+ * {@link makeColumnAccept} predicate so only keyed leaf fields can land —
+ * containers and display / action blocks are turned away at the affordance.
+ * Non-column template blocks (only reachable via a stack→table toggle or JSON)
+ * are skipped, exactly as the runtime drops them.
+ */
+function SubformTablePreview({ subform }: { subform: TableSubform }): ReactElement {
+  const chrome = useContainerChrome();
+  const registry = useFieldRegistry();
+  const storeApi = useFormEditorStoreApi();
+  const suppressed = use(SubtreeDraggingContext);
+
+  const tailTarget = useMemo<DropZoneData>(() => {
+    return { zone: "container", containerId: subform.id };
+  }, [subform.id]);
+
+  // The accept predicate reads the live layer lazily (only fired during a drag),
+  // so the table preview never subscribes to the whole schema. The table renders
+  // PC-only, so the layer is always the PC presentation.
+  const accept = useMemo<DropZoneAccept>(
+    () => source => makeColumnAccept(registry, resolvePresentation(storeApi.getState().schema, "pc"))(source),
+    [registry, storeApi]
+  );
+
+  const { isDropTarget, ref } = useDroppable({
+    id: fallbackDropZoneId(tailTarget),
+    type: FIELD_DRAG_TYPE,
+    accept,
+    collisionPriority: CollisionPriority.Lowest,
+    disabled: suppressed,
+    data: tailTarget
+  });
+
+  const columns = subform.template.filter(block => isTableColumnField(block));
+
+  if (columns.length === 0) {
+    return (
+      <chrome.Subform title={subform.label ?? "子表单"}>
+        <EmptyZone accept={accept} disabled={suppressed} hint="从左侧拖入字段作为表格列" tailTarget={tailTarget} />
+      </chrome.Subform>
+    );
+  }
+
+  const inline = inlineSlots(columns);
+
+  return (
+    <chrome.Subform title={subform.label ?? "子表单"}>
+      <div ref={ref} css={[subformTableCss, isDropTarget && subformTableActiveCss]}>
+        <div css={subformTableRowCss}>
+          {columns.map((field, index) => {
+            const beside = inline[index]?.beside ?? [];
+
+            return (
+              <div key={field.id} css={subformTableColCss}>
+                <CanvasField block={field}>
+                  <SubformColumn field={field} />
+                </CanvasField>
+
+                {suppressed ? null : beside.map(zone => <Zone key={zone.id} descriptor={{ ...zone, accept }} />)}
+              </div>
+            );
+          })}
+
+          <div aria-hidden css={subformAppendColCss}>
+            <EditorIcon name="plus" />
+            <span>拖入列</span>
+          </div>
+        </div>
+      </div>
+
+      <span aria-hidden css={subformAddRowCss}>
+        <EditorIcon name="plus" />
+        {subform.addLabel ?? "新增一行"}
+      </span>
+    </chrome.Subform>
+  );
+}
+
+/**
+ * One table column: the field's label as a header (with the live required mark)
+ * over a disabled {@link SampleCell} editor. Rendered inside a {@link CanvasField}
+ * so the whole column selects, drags, duplicates, and deletes like any block.
+ */
+function SubformColumn({ field }: { field: KeyedFormField }): ReactElement {
+  const required = isValidatableField(field) && field.validate?.required === true;
+
+  return (
+    <div css={subformColumnCss}>
+      <div css={subformColumnHeaderCss}>
+        <span css={subformColumnTitleCss}>{field.label ?? field.key}</span>
+        {required ? <span css={subformColumnRequiredCss}>*</span> : null}
+      </div>
+
+      <div css={subformColumnCellCss}>
+        <SampleCell field={field} />
+      </div>
+    </div>
   );
 }
 

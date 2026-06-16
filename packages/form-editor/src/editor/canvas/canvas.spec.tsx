@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 
 import type { FormEditorStoreApi } from "../../store/form-store";
-import type { FormSchema, TextfieldField } from "../../types";
+import type { Block, FormSchema, TextfieldField } from "../../types";
 
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -128,6 +128,44 @@ function makeContainersSchema(): FormSchema {
           }
         ]
       }
+    }
+  };
+}
+
+function tableSubformColumns(): Block[] {
+  return [
+    {
+      id: "Col_name",
+      type: "textfield",
+      key: "name",
+      label: "姓名",
+      validate: { required: true }
+    },
+    {
+      id: "Col_age",
+      type: "number",
+      key: "age",
+      label: "年龄"
+    }
+  ];
+}
+
+function makeTableSubformSchema(): FormSchema {
+  const subform: Block = {
+    id: "Subform_T",
+    type: "subform",
+    variant: "table",
+    key: "rows",
+    label: "表格子表单",
+    template: tableSubformColumns()
+  };
+
+  return {
+    id: "Form_1",
+    version: 2,
+    presentations: {
+      pc: { children: [subform] },
+      mobile: { children: [subform] }
     }
   };
 }
@@ -301,6 +339,35 @@ describe("Canvas", () => {
       expect(screen.getByRole("textbox", { name: "字段A" })).toBeInTheDocument();
       expect(screen.getByRole("textbox", { name: "字段B" })).toBeInTheDocument();
       expect(screen.getByRole("textbox", { name: "字段C" })).toBeInTheDocument();
+    });
+  });
+
+  describe("table subform preview", () => {
+    it("renders each keyed leaf template field as a column on PC", () => {
+      setupCanvas({ schema: makeTableSubformSchema() });
+
+      expect(screen.getByText("姓名")).toBeInTheDocument();
+      expect(screen.getByText("年龄")).toBeInTheDocument();
+      // The trailing affordance that only the table chrome draws.
+      expect(screen.getByText("拖入列")).toBeInTheDocument();
+    });
+
+    it("renders a disabled sample editor per column on PC", () => {
+      setupCanvas({ schema: makeTableSubformSchema() });
+
+      // The 年龄 column's sample cell is a disabled number control.
+      expect(screen.getByRole("spinbutton")).toBeDisabled();
+    });
+
+    it("falls back to the stacked layout on mobile", () => {
+      const storeApi = setupCanvas({ schema: makeTableSubformSchema() });
+
+      act(() => {
+        storeApi.getState().setDevice("mobile");
+      });
+
+      // The column table chrome is PC-only; mobile renders the subform stacked.
+      expect(screen.queryByText("拖入列")).not.toBeInTheDocument();
     });
   });
 
