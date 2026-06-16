@@ -5,16 +5,14 @@ import type { EditorView } from "@codemirror/view";
 import type { SourceFieldOption } from "./options";
 
 import { autocompletion } from "@codemirror/autocomplete";
-import { syntaxTree } from "@codemirror/language";
 import { linter } from "@codemirror/lint";
 
 /**
- * Editor assistance for the JS linkage expressions (`field.x > 1`-style
- * conditions and script sources): scope-aware autocompletion plus a lint pass
- * that flags member access on keys the current scope does not provide.
- * Everything here is pure CodeMirror extension wiring — the evaluator
- * (`engine/linkage/default-evaluator.ts`) stays the single source of truth
- * for what the scope actually contains at runtime.
+ * Editor assistance for ZEN linkage expressions (`field.x > 1`-style
+ * conditions and value expressions): scope-aware autocompletion plus a lint
+ * pass that flags member access on keys the current scope does not provide.
+ * Script sources can reuse the same scope assistance even though their
+ * execution still goes through `new Function`.
  */
 
 /**
@@ -133,37 +131,26 @@ export function lintUnknownFieldMembers(view: EditorView, fieldKeys: ReadonlySet
     return diagnostics;
   }
 
-  syntaxTree(view.state).iterate({
-    enter: node => {
-      if (node.name !== "MemberExpression") {
-        return;
-      }
+  const doc = view.state.doc.toString();
+  const memberPattern = /(?:^|[^\w$])(?<root>\$form|field)\.(?<key>[A-Z_$][\w$]*)/gi;
 
-      const objectNode = node.node.firstChild;
-      const propNode = node.node.lastChild;
+  for (const match of doc.matchAll(memberPattern)) {
+    const root = match.groups?.root;
+    const key = match.groups?.key;
 
-      if (objectNode?.name !== "VariableName" || propNode?.name !== "PropertyName") {
-        return;
-      }
-
-      const root = view.state.sliceDoc(objectNode.from, objectNode.to);
-
-      if (!VALUE_ROOTS.has(root)) {
-        return;
-      }
-
-      const prop = view.state.sliceDoc(propNode.from, propNode.to);
-
-      if (!fieldKeys.has(prop)) {
-        diagnostics.push({
-          from: propNode.from,
-          to: propNode.to,
-          severity: "warning",
-          message: `当前作用域内没有字段 key「${prop}」`
-        });
-      }
+    if (root === undefined || key === undefined || !VALUE_ROOTS.has(root) || fieldKeys.has(key)) {
+      continue;
     }
-  });
+
+    const keyStart = (match.index ?? 0) + match[0].lastIndexOf(key);
+
+    diagnostics.push({
+      from: keyStart,
+      to: keyStart + key.length,
+      severity: "warning",
+      message: `当前作用域内没有字段 key「${key}」`
+    });
+  }
 
   return diagnostics;
 }

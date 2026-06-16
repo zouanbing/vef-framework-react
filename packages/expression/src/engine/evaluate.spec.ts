@@ -4,7 +4,6 @@ import {
   evaluateSync,
   evaluateUnary,
   evaluateUnarySync,
-  getCompletions,
   validate,
   validateUnary
 } from "./evaluate";
@@ -17,7 +16,6 @@ const zen = vi.hoisted(() => {
     evaluateUnaryExpression: vi.fn(),
     validateExpression: vi.fn(),
     validateUnaryExpression: vi.fn(),
-    getCompletions: vi.fn(),
     isReady: vi.fn()
   };
 });
@@ -29,7 +27,6 @@ vi.mock("@gorules/zen-engine-wasm", () => {
     evaluateUnaryExpression: zen.evaluateUnaryExpression,
     validateExpression: zen.validateExpression,
     validateUnaryExpression: zen.validateUnaryExpression,
-    getCompletions: zen.getCompletions,
     isReady: zen.isReady
   };
 });
@@ -113,14 +110,5 @@ describe("validateUnary", () => {
     zen.validateUnaryExpression.mockReturnValue(diagnostic);
 
     await expect(validateUnary("> 0")).resolves.toBe(diagnostic);
-  });
-});
-
-describe("getCompletions", () => {
-  it("returns the engine completion metadata", async () => {
-    const completions = { functions: ["sum"] };
-    zen.getCompletions.mockReturnValue(completions);
-
-    await expect(getCompletions()).resolves.toBe(completions);
   });
 });

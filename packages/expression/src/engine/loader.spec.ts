@@ -8,7 +8,6 @@ const zen = vi.hoisted(() => {
     evaluateUnaryExpression: vi.fn(),
     validateExpression: vi.fn(),
     validateUnaryExpression: vi.fn(),
-    getCompletions: vi.fn(),
     isReady: vi.fn()
   };
 });
@@ -20,7 +19,6 @@ vi.mock("@gorules/zen-engine-wasm", () => {
     evaluateUnaryExpression: zen.evaluateUnaryExpression,
     validateExpression: zen.validateExpression,
     validateUnaryExpression: zen.validateUnaryExpression,
-    getCompletions: zen.getCompletions,
     isReady: zen.isReady
   };
 });

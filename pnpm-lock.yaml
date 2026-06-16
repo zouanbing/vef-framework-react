@@ -630,19 +630,12 @@ importers:
       '@vef-framework-react/shared':
         specifier: workspace:*
         version: link:../shared
-    devDependencies:
-      react:
-        specifier: ^19.2.7
-        version: 19.2.7
 
   packages/form-editor:
     dependencies:
       '@codemirror/autocomplete':
         specifier: ^6.20.3
         version: 6.20.3
-      '@codemirror/language':
-        specifier: ^6.12.3
-        version: 6.12.3
       '@codemirror/lint':
         specifier: ^6.8.5
         version: 6.9.6
@@ -658,6 +651,9 @@ importers:
       '@vef-framework-react/core':
         specifier: workspace:*
         version: link:../core
+      '@vef-framework-react/expression':
+        specifier: workspace:*
+        version: link:../expression
       '@vef-framework-react/hooks':
         specifier: workspace:*
         version: link:../hooks

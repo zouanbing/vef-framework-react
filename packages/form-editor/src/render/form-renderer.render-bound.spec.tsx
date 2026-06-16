@@ -9,6 +9,11 @@ import { createDefaultRegistry } from "../engine/registry/defaults";
 import { RegistryProvider } from "../store/engine-provider";
 import { FormRenderer } from "./form-renderer";
 
+vi.mock("@vef-framework-react/expression", async () => {
+  const { mockExpressionPackage } = await import("../test-expression-engine");
+  return mockExpressionPackage();
+});
+
 /**
  * Render-count fence for the runtime renderer's O(k)-per-keystroke guarantee.
  *

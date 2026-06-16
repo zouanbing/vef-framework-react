@@ -14,6 +14,7 @@ import type {
   FormSchema,
   GapScale,
   GridNode,
+  LinkageCondition,
   LinkageEvaluators,
   LinkageTriggerKind,
   PresentationDevice,
@@ -26,8 +27,9 @@ import type {
 
 import { css } from "@emotion/react";
 import { EditableTable, Flex, globalCssVars, Stack, useForm } from "@vef-framework-react/components";
+import { getEngineError, isEngineReady, loadEngine } from "@vef-framework-react/expression";
 import { isDeepEqual } from "@vef-framework-react/shared";
-import { createContext, memo, use, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { createContext, memo, Suspense, use, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 import { MobileScope } from "../components/mobile/scope";
 import { isKeyedField } from "../engine/keys";
@@ -61,6 +63,16 @@ import {
 
 const rootCss = css({ width: "100%" });
 
+interface ExpressionEvaluationUsage {
+  condition: boolean;
+  value: boolean;
+}
+
+const NO_EXPRESSION_EVALUATION: ExpressionEvaluationUsage = Object.freeze({
+  condition: false,
+  value: false
+});
+
 export interface FormRendererProps {
   schema: FormSchema;
   /**
@@ -72,9 +84,10 @@ export interface FormRendererProps {
   defaultValues?: RuntimeFormValues;
   disabled?: boolean;
   /**
-   * Overrides for the dynamic linkage evaluators. Each slot falls back to the
-   * default `new Function`-based implementation when not supplied — host
-   * projects only need overrides for a sandbox, a custom JS engine, or a DSL.
+   * Overrides for the dynamic linkage evaluators. Expression slots fall back to
+   * the shared ZEN engine; script slots fall back to `new Function` because
+   * scripts are statement blocks. Host projects only need overrides for a
+   * sandbox, a custom expression engine, or a DSL.
    */
   evaluators?: LinkageEvaluators;
   /**
@@ -263,6 +276,20 @@ function useRuntimeForm(
   });
 }
 
+function ZenEngineGate({ children }: { children: ReactNode }): ReactNode {
+  if (!isEngineReady()) {
+    const error = getEngineError();
+
+    if (error) {
+      throw error;
+    }
+
+    throw loadEngine();
+  }
+
+  return children;
+}
+
 /**
  * Runtime renderer for a form schema.
  *
@@ -280,15 +307,108 @@ export function FormRenderer({
   // and `$vars` seed from this, so a fresh reference each render would re-seed
   // `$vars` and clobber `set_variable` writes on any host re-render.
   const runtimeSchema = useMemo(() => toRuntimeSchema(schema, device), [schema, device]);
-  const content = runtimeSchema
+  const expressionUsage = useMemo(
+    () => runtimeSchema ? getSchemaExpressionEvaluationUsage(runtimeSchema) : NO_EXPRESSION_EVALUATION,
+    [runtimeSchema]
+  );
+  const needsDefaultExpressionEngine = (expressionUsage.condition && rest.evaluators?.evaluateExpression === undefined)
+    || (expressionUsage.value && rest.evaluators?.evaluateAssignExpression === undefined);
+  const inner = runtimeSchema
     ? <FormRendererInner runtimeSchema={runtimeSchema} {...rest} />
     : <FormRendererEmpty />;
+  const content = needsDefaultExpressionEngine
+    ? <Suspense fallback={null}><ZenEngineGate>{inner}</ZenEngineGate></Suspense>
+    : inner;
 
   return (
     <DeviceProvider device={device}>
       {device === "mobile" ? <MobileScope containOverlays={containOverlays}>{content}</MobileScope> : content}
     </DeviceProvider>
   );
+}
+
+function getSchemaExpressionEvaluationUsage(schema: RuntimeSchema): ExpressionEvaluationUsage {
+  const usage: ExpressionEvaluationUsage = { condition: false, value: false };
+
+  markRulesExpressionEvaluation(schema.linkage?.rules, usage);
+
+  for (const child of schema.children) {
+    markBlockExpressionEvaluation(child, usage);
+
+    if (usage.condition && usage.value) {
+      break;
+    }
+  }
+
+  return usage;
+}
+
+function markBlockExpressionEvaluation(block: Block, usage: ExpressionEvaluationUsage): void {
+  markRulesExpressionEvaluation(block.linkage?.rules, usage);
+
+  if (usage.condition && usage.value) {
+    return;
+  }
+
+  if ("children" in block && Array.isArray(block.children)) {
+    for (const child of block.children) {
+      markBlockExpressionEvaluation(child, usage);
+
+      if (usage.condition && usage.value) {
+        return;
+      }
+    }
+  }
+
+  if ("template" in block && Array.isArray(block.template)) {
+    for (const child of block.template) {
+      markBlockExpressionEvaluation(child, usage);
+
+      if (usage.condition && usage.value) {
+        return;
+      }
+    }
+  }
+}
+
+function markRulesExpressionEvaluation(rules: FieldLinkageRule[] | undefined, usage: ExpressionEvaluationUsage): void {
+  for (const rule of rules ?? []) {
+    if (conditionUsesExpression(rule.trigger.kind === "condition" ? rule.trigger.condition : undefined)) {
+      usage.condition = true;
+    }
+
+    for (const action of rule.actions) {
+      if (action.type === "assign" || action.type === "set_field" || action.type === "set_variable") {
+        usage.value ||= action.value.kind === "expression";
+        continue;
+      }
+
+      if (action.type === "alert") {
+        usage.value ||= action.message.kind === "expression";
+        continue;
+      }
+
+      if (action.type === "navigate") {
+        usage.value ||= action.to.kind === "expression";
+      }
+    }
+
+    if (usage.condition && usage.value) {
+      return;
+    }
+  }
+}
+
+function conditionUsesExpression(condition: LinkageCondition | undefined): boolean {
+  if (condition === undefined) {
+    return false;
+  }
+
+  if (condition.kind === "expression") {
+    return true;
+  }
+
+  return condition.kind === "group" && condition.children.some(child => conditionUsesExpression(child));
 }
 
 const emptyStateCss = css({

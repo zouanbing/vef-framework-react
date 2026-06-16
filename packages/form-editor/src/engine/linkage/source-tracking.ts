@@ -20,9 +20,9 @@ interface LinkageBearer {
  * and edge-triggered (event) rules add no keys; their work happens on the
  * effect lane, not in this field's validator.
  *
- * Expression conditions return no keys — the host-supplied evaluator is
- * opaque to the framework. Authors using `expression` must trust the
- * runtime to re-evaluate on any value change.
+ * Expression conditions return no keys — the expression evaluator is opaque to
+ * the framework. Authors using `expression` must trust the runtime to
+ * re-evaluate on any value change.
  */
 export function getLinkageSourceKeys(node: LinkageBearer): string[] {
   const rules = node.linkage?.rules ?? [];

@@ -36,7 +36,7 @@ VEF Framework React is a pnpm-workspace monorepo of composable packages for buil
 - A typed API client over TanStack Query + axios, with business-error handling and automatic token refresh
 - 100+ antd v6 + Emotion components, with TanStack Form wrappers (`FormModal` / `FormDrawer` / `Crud`)
 - State utilities for Jotai, Zustand, and XState — pick the tool that fits the complexity
-- A frontend expression engine (GoRules ZEN) with in-editor lint, hover, and completion
+- A GoRules ZEN expression runtime for form linkage plus shared condition-operator vocabulary
 - Visual form and approval-flow editors designed for forms with hundreds of fields
 - Ships as dual ESM/CJS with TypeScript declarations
 
@@ -48,12 +48,11 @@ VEF Framework React is a pnpm-workspace monorepo of composable packages for buil
 | [`@vef-framework-react/components`](https://www.npmjs.com/package/@vef-framework-react/components)                     | antd v6 + Emotion component library (100+ components), TanStack Form integration, and a semantic color/scene system                                   |
 | [`@vef-framework-react/hooks`](https://www.npmjs.com/package/@vef-framework-react/hooks)                               | Reusable React hooks — permission, event, dictionary, upload, deep-compare, and more                                                                  |
 | [`@vef-framework-react/shared`](https://www.npmjs.com/package/@vef-framework-react/shared)                             | Dependency-free utilities — tree, chrono, color, equality, path, string, event, task, and format helpers                                              |
-| [`@vef-framework-react/expression`](https://www.npmjs.com/package/@vef-framework-react/expression)                     | Frontend wrapper around the GoRules ZEN engine — expression compile/evaluate plus editor lint/hover/completion                                        |
+| [`@vef-framework-react/expression`](https://www.npmjs.com/package/@vef-framework-react/expression)                     | GoRules ZEN expression runtime for form linkage plus shared condition-operator vocabulary                                                             |
 | [`@vef-framework-react/starter`](https://www.npmjs.com/package/@vef-framework-react/starter)                           | Ready-to-use layouts and auth components built on TanStack Router                                                                                     |
+| [`@vef-framework-react/form-editor`](https://www.npmjs.com/package/@vef-framework-react/form-editor)                   | Visual form-schema editor with ZEN-powered linkage expressions                                                                                        |
 | [`@vef-framework-react/approval-flow-editor`](https://www.npmjs.com/package/@vef-framework-react/approval-flow-editor) | Visual approval-flow editor on @xyflow/react with elkjs auto-layout                                                                                   |
 | [`@vef-framework-react/dev`](https://www.npmjs.com/package/@vef-framework-react/dev)                                   | Shared ESLint / Stylelint / Commitlint configs, Vite plugins, and TypeScript configs                                                                  |
-
-> `@vef-framework-react/form-editor` (visual form-schema editor) is under active development and not yet published.
 
 ## Quick Start
 

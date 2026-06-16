@@ -372,7 +372,6 @@ function ActionValueEditor({
             <div css={codeEditorWrapperCss}>
               <CodeEditor
                 extensions={assistExtensions}
-                language="javascript"
                 minHeight={60}
                 placeholder={expressionPlaceholder}
                 showFoldGutter={false}

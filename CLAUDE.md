@@ -54,19 +54,19 @@ VEF Framework is a React 19 application framework published to npm under `@vef-f
 
 ### Packages
 
-Most packages publish under `@vef-framework-react/*` as dual ESM/CJS with TypeScript declarations (`form-editor` is currently `private`).
+Packages publish under `@vef-framework-react/*` as dual ESM/CJS with TypeScript declarations.
 
-| Package | Purpose |
-| --- | --- |
-| **core** | API client (TanStack Query + axios), `HttpClient` with `BusinessError` / token refresh, state utilities (Jotai / Zustand / XState), Immer, selector-based contexts, resumable chunked-upload `Uploader`, SSE client |
-| **components** | antd v6 + Emotion UI library (100+ components), TanStack Form integration, semantic color/scene system, custom motion/typography components |
-| **hooks** | Reusable React hook library (permission / event / dictionary / upload / deep-compare / etc.) |
-| **shared** | Pure-function utilities (tree, chrono, color, equal, key, path, string, event, task, format) |
-| **expression** | Frontend abstraction over the GoRules ZEN engine (`@gorules/zen-engine-wasm`) — expression compile/evaluate + editor lint/hover/completion; surfaced via `ExpressionInput` in `components`, used by `form-editor` and `approval-flow-editor` (the flow editor shares its `CONDITION_OPERATORS` vocabulary and edits branch expressions through `ExpressionInput`; evaluation still happens on the backend) |
-| **starter** | Ready-to-use layouts and auth components on top of TanStack Router |
-| **form-editor** | Visual form schema editor. `private` is temporary — slated for npm publish; treat its `src/index.ts` as publication-grade (still pre-release, so pattern-fixing breaking changes are OK now). Targets forms with 100s of fields. |
-| **approval-flow-editor** | Visual approval flow editor on @xyflow/react v12 (ReactFlow) + elkjs auto-layout (excluded from test scope — visual canvas) |
-| **dev** | Shared ESLint / Stylelint / Commitlint configs, Vite plugins, TypeScript configs |
+| Package                  | Purpose                                                                                                                                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **core**                 | API client (TanStack Query + axios), `HttpClient` with `BusinessError` / token refresh, state utilities (Jotai / Zustand / XState), Immer, selector-based contexts, resumable chunked-upload `Uploader`, SSE client         |
+| **components**           | antd v6 + Emotion UI library (100+ components), TanStack Form integration, semantic color/scene system, custom motion/typography components                                                                                 |
+| **hooks**                | Reusable React hook library (permission / event / dictionary / upload / deep-compare / etc.)                                                                                                                                |
+| **shared**               | Pure-function utilities (tree, chrono, color, equal, key, path, string, event, task, format)                                                                                                                                |
+| **expression**           | GoRules ZEN engine runtime (`@gorules/zen-engine-wasm`) for expression evaluate/validate helpers, plus the shared `CONDITION_OPERATORS` / `ConditionOperator` vocabulary used by `approval-flow-editor`                     |
+| **starter**              | Ready-to-use layouts and auth components on top of TanStack Router                                                                                                                                                          |
+| **form-editor**          | Visual form schema editor with ZEN-powered linkage expression evaluation. Published under `@vef-framework-react/form-editor`; treat exported APIs and schema shapes as external surface. Targets forms with 100s of fields. |
+| **approval-flow-editor** | Visual approval flow editor on @xyflow/react v12 (ReactFlow) + elkjs auto-layout (excluded from test scope — visual canvas)                                                                                                 |
+| **dev**                  | Shared ESLint / Stylelint / Commitlint configs, Vite plugins, TypeScript configs                                                                                                                                            |
 
 ### Key Patterns
 
@@ -77,7 +77,7 @@ Most packages publish under `@vef-framework-react/*` as dual ESM/CJS with TypeSc
 - **Auth skip**: set header `X-Skip-Authentication: "1"` to bypass Bearer injection for a single request.
 - **State management**: Jotai for atomic state, Zustand for stores (with `createStore` / `createPersistedStore` middleware stack in `core/store`), XState for complex machines (with `useActor` + selector in `core/state-machine`). Pick by complexity.
 - **Forms**: TanStack Form is wrapped by `packages/components/src/form/*` and surfaced through `FormModal` / `FormDrawer` / `Crud`.
-- **Expression engine**: `packages/expression` wraps the GoRules ZEN WASM engine and defines the `$vars` / `$user` / `$node` / `$form` scope; `components/expression-input` wires it to CodeMirror for in-editor lint / hover / completion; form-editor linkage evaluates through it (approval-flow conditions are plain backend-evaluated expressions, not ZEN).
+- **Expression engine**: `packages/expression` wraps the GoRules ZEN WASM engine. `form-editor` default condition / assignment expressions evaluate through `evaluateSync()` with `field` / `$form`, `$vars`, `$user`, `$node`, and numeric `$now`; script actions deliberately stay on `new Function` because they are multi-line statement blocks. `approval-flow-editor` consumes only the shared condition-operator vocabulary; approval condition evaluation still happens on the backend.
 - **Editor perf at scale**: the form/flow editors target 100s of fields — keep per-keystroke render and per-frame drag cheap (structural sharing in `packages/form-editor/src/engine/schema/mutate.ts`, memoized canvas rows, and don't let `$vars` / expression-scope changes bust cell `memo`). Discrete-action tree walks (drop / duplicate) are not hot paths; don't pre-optimize them.
 
 ### Build System

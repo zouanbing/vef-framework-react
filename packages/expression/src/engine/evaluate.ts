@@ -25,7 +25,7 @@ export async function evaluateUnary(expression: string, context?: ExpressionCont
 /**
  * Evaluate a standard ZEN expression synchronously. Throws
  * {@link ExpressionNotReadyError} when the engine has not loaded yet — use this
- * only behind a readiness gate (e.g. under `<ExpressionEngineProvider>`).
+ * only behind a readiness gate that has awaited {@link loadEngine}.
  */
 export function evaluateSync<T = unknown>(expression: string, context?: ExpressionContext): T {
   return getEngineSync().evaluate<T>(expression, context);
@@ -53,12 +53,4 @@ export async function validate(expression: string): Promise<unknown> {
 export async function validateUnary(expression: string): Promise<unknown> {
   const engine = await loadEngine();
   return engine.validateUnary(expression);
-}
-
-/**
- * Return ZEN completion metadata, loading the engine on first use.
- */
-export async function getCompletions(): Promise<unknown> {
-  const engine = await loadEngine();
-  return engine.getCompletions();
 }

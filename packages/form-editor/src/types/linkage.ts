@@ -15,7 +15,8 @@ import type { RemoteDataSourceRequest } from "./data-source";
  * - **Condition** is a discriminated union of three kinds — `leaf`, `group`,
  * `expression` — that compose freely. A leaf evaluates a single operator
  * against one source field; a group joins children with `all` / `any`
- * logic; an expression delegates to a host-supplied JS evaluator.
+ * logic; an expression runs through the shared ZEN evaluator by default or a
+ * host-supplied evaluator override.
  * - **Trigger** wraps a condition (a *level* signal) or names an *edge* — a
  * field event (`change` / `focus` / `blur` / `click`) or a form lifecycle
  * moment (`load` / `beforeSubmit` / `afterSubmit`).
@@ -23,10 +24,10 @@ import type { RemoteDataSourceRequest } from "./data-source";
  * ... / `assign` / `script`) that derive a field's runtime state, and
  * **effect** actions (`alert` / `set_field` / ...) that fire side effects.
  *
- * The framework only ships the JSON shape and the recursion. Expression /
- * script evaluation and side-effect dispatch are pluggable via
- * {@link LinkageEvaluators} so hosts choose their own JS engine, sandbox, or
- * effect runtime.
+ * The framework ships the JSON shape, recursion, and default runtime
+ * evaluators. Expression evaluation, script evaluation, and side-effect
+ * dispatch are still pluggable via {@link LinkageEvaluators} so hosts can swap
+ * in their own expression engine, script sandbox, or effect runtime.
  */
 
 /**
@@ -309,10 +310,10 @@ export interface ExpressionContext {
 }
 
 /**
- * Pluggable evaluators for the dynamic parts of the model. The expression /
- * script slots default to a `new Function`-based implementation provided by the
- * engine package; `dispatchEffect` defaults to a no-op. Hosts override any slot
- * to swap in their own JS engine, sandbox, or effect runtime.
+ * Pluggable evaluators for the dynamic parts of the model. Expression slots
+ * default to the shared ZEN evaluator, script slots default to `new Function`,
+ * and `dispatchEffect` defaults to a no-op. Hosts override any slot to swap in
+ * their own expression engine, script sandbox, or effect runtime.
  *
  * The optional `context` argument carries the {@link ExpressionContext}
  * (`$vars` / `$user` / `$node`); a host evaluator may ignore it.

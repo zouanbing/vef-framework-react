@@ -15,12 +15,11 @@ export class ExpressionError extends Error {
 
 /**
  * Raised by the synchronous evaluation helpers when the engine has not finished
- * initializing yet. Await {@link loadEngine} (or render under
- * `<ExpressionEngineProvider>`) before evaluating synchronously.
+ * initializing yet. Await {@link loadEngine} before evaluating synchronously.
  */
 export class ExpressionNotReadyError extends ExpressionError {
   constructor(
-    message = "Expression engine is not initialized. Await loadEngine() or render under <ExpressionEngineProvider>."
+    message = "Expression engine is not initialized. Await loadEngine() before evaluating synchronously."
   ) {
     super(message);
     this.name = "ExpressionNotReadyError";

@@ -28,6 +28,11 @@ import {
 } from "./index";
 import { matchLeaf } from "./operators";
 
+vi.mock("@vef-framework-react/expression", async () => {
+  const { mockExpressionPackage } = await import("../../test-expression-engine");
+  return mockExpressionPackage();
+});
+
 function makeField(key: string, overrides: Partial<TextfieldField> = {}): TextfieldField {
   return {
     id: `Field_${key}`,
@@ -571,7 +576,7 @@ describe("linkage engine", () => {
   });
 
   describe("state lane — expression conditions", () => {
-    it("invokes the default new Function evaluator and returns a boolean", () => {
+    it("invokes the default ZEN evaluator and returns a boolean", () => {
       const field = makeField("target", {
         linkage: {
           rules: [
@@ -581,7 +586,7 @@ describe("linkage engine", () => {
                 kind: "condition",
                 condition: {
                   kind: "expression",
-                  source: "field.type === \"enterprise\" && field.amount > 10"
+                  source: "field.type == 'enterprise' and field.amount > 10"
                 }
               },
               actions: [{ type: "hide" }]
@@ -600,7 +605,7 @@ describe("linkage engine", () => {
           rules: [
             {
               id: "Rule_1",
-              trigger: { kind: "condition", condition: { kind: "expression", source: "this is not js" } },
+              trigger: { kind: "condition", condition: { kind: "expression", source: "this is not zen" } },
               actions: [{ type: "hide" }]
             }
           ]
@@ -641,7 +646,7 @@ describe("linkage engine", () => {
           rules: [
             {
               id: "R1",
-              trigger: { kind: "condition", condition: { kind: "expression", source: "$vars.flag === true && $form.amount > 5" } },
+              trigger: { kind: "condition", condition: { kind: "expression", source: "$vars.flag == true and $form.amount > 5" } },
               actions: [{ type: "hide" }]
             }
           ]
@@ -659,7 +664,7 @@ describe("linkage engine", () => {
           rules: [
             {
               id: "R1",
-              trigger: { kind: "condition", condition: { kind: "expression", source: "field.amount === $form.amount" } },
+              trigger: { kind: "condition", condition: { kind: "expression", source: "field.amount == $form.amount" } },
               actions: [{ type: "hide" }]
             }
           ]
@@ -730,7 +735,7 @@ describe("linkage engine", () => {
               actions: [
                 {
                   type: "script",
-                  source: "return { hidden: field.trigger === \"off\", value: field.trigger + \"!\" };"
+                  source: "return { hidden: field.trigger == \"off\", value: field.trigger + \"!\" };"
                 }
               ]
             }
@@ -801,17 +806,15 @@ describe("linkage engine", () => {
     });
   });
 
-  describe("default evaluator compile caching", () => {
+  describe("default evaluator failure handling", () => {
     it("returns false on every evaluation of an uncompilable expression", () => {
-      // The first call compiles (and fails); the failure is cached as an inert
-      // function so the second call must not re-throw or change behavior.
-      expect(defaultEvaluateExpression("this is ( not js", { a: 1 })).toBe(false);
-      expect(defaultEvaluateExpression("this is ( not js", { a: 2 })).toBe(false);
+      expect(defaultEvaluateExpression("not valid zen (", { a: 1 })).toBe(false);
+      expect(defaultEvaluateExpression("not valid zen (", { a: 2 })).toBe(false);
     });
 
     it("returns undefined on every evaluation of an uncompilable assign expression", () => {
-      expect(defaultEvaluateAssignExpression("also ( broken", {})).toBeUndefined();
-      expect(defaultEvaluateAssignExpression("also ( broken", {})).toBeUndefined();
+      expect(defaultEvaluateAssignExpression("also not valid zen (", {})).toBeUndefined();
+      expect(defaultEvaluateAssignExpression("also not valid zen (", {})).toBeUndefined();
     });
   });
 

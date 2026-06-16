@@ -45,6 +45,7 @@ export default defineConfig({
         // Specs and test utilities
         "**/*.spec.{ts,tsx}",
         "**/test-utils.tsx",
+        "**/test-expression-engine.ts",
         // Out-of-scope packages (see AGENTS.md > Testing Conventions > What Not to Test)
         "packages/starter/**",
         "packages/dev/**",

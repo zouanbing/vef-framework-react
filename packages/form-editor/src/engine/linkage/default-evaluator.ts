@@ -1,92 +1,60 @@
 import type { ExpressionContext, LinkageEvaluators, LinkageScriptResult } from "../../types";
 
+import { evaluateSync } from "@vef-framework-react/expression";
 import { lru } from "@vef-framework-react/shared";
 
 /**
- * Default JS evaluators used when the host project does not inject its
- * own. Both forms compile `source` with `new Function` once and cache the
- * compiled function, so repeated evaluations during a form session are
- * just function calls.
+ * Default evaluators used when the host project does not inject its own.
+ * Condition and assignment expressions run through the shared ZEN engine from
+ * `@vef-framework-react/expression`; script actions stay on `new Function`
+ * because they are statement blocks and can span multiple lines.
  *
- * The compiled function receives the full scope: `field` / `$form` (the form
- * values — `field` is the legacy alias), `$vars` (form variables), `$user` /
- * `$node` (host context), and `$now` (the current time). All but `field` /
- * `$form` come from the optional {@link ExpressionContext}.
+ * The expression scope contains `field` / `$form` (the form values — `field` is
+ * the legacy alias), `$vars` (form variables), `$user` / `$node` (host context),
+ * and `$now` (the current time). All but `field` / `$form` come from the
+ * optional {@link ExpressionContext}.
  *
- * Security model: the framework assumes form schemas come from a trusted
- * source (your own backend or design-time editor). `new Function` runs
- * inside the same realm as the host page; sandboxing is the host's
- * responsibility if untrusted schemas are involved — supply your own
- * `LinkageEvaluators` to swap in a sandboxed runtime.
+ * Security model: scripts still run in the host page through `new Function`, so
+ * the framework assumes schemas come from a trusted source for script actions.
+ * Sandboxing scripts remains the host's responsibility — supply your own
+ * `LinkageEvaluators` to swap in a sandboxed script runtime.
  *
- * CSP behavior: `new Function` requires the page to allow `'unsafe-eval'`.
- * Under a stricter Content-Security-Policy the constructor throws at compile
- * time; that failure is cached like a successful compile (as an inert
- * function), so expression conditions degrade to `false`, assign / script
- * expressions to `undefined`, and the form keeps rendering without re-throwing
- * per evaluation. Hosts running under such a policy should supply ZEN-backed
- * `LinkageEvaluators` (see `@vef-framework-react/expression`) instead of
- * relying on these defaults.
+ * CSP behavior: only scripts require `'unsafe-eval'`. A blocked or malformed
+ * script degrades to `undefined`; malformed ZEN expressions degrade to `false`
+ * for conditions and `undefined` for assignment values.
  */
 
 type Scope = Record<string, unknown>;
-
-type ExpressionFn = ($form: Scope, $vars: Scope, $user: Scope, $node: Scope, $now: Date) => unknown;
 
 type ScriptFn = ($form: Scope, $vars: Scope, $user: Scope, $node: Scope, $now: Date) => LinkageScriptResult | void;
 
 const COMPILE_CACHE_SIZE = 100;
 const EMPTY_SCOPE: Scope = Object.freeze({});
 
-const expressionCache = lru<ExpressionFn>(COMPILE_CACHE_SIZE);
 const scriptCache = lru<ScriptFn>(COMPILE_CACHE_SIZE);
 
 // `field` and `$form` both bind the form values (`field` is the legacy alias);
 // strict mode keeps `this === undefined` and disables sloppy-mode escape hatches.
 const SCOPE_PARAMS = ["field", "$form", "$vars", "$user", "$node", "$now"] as const;
 
-function compileExpression(source: string): ExpressionFn {
-  // The body is wrapped in `return (...)` so callers write a bare expression.
-  // eslint-disable-next-line no-new-func -- intentional: the default JS evaluator runs trusted schema-supplied expressions; hosts that need a sandbox swap in their own LinkageEvaluators.
-  const fn = new Function(...SCOPE_PARAMS, `"use strict"; return (${source});`);
-
-  return (($form, $vars, $user, $node, $now) => fn($form, $form, $vars, $user, $node, $now)) as ExpressionFn;
-}
-
 function compileScript(source: string): ScriptFn {
   // Action scripts are statement blocks — the user must `return { ... }`
   // explicitly if they want to patch state. No return is a valid no-op.
-  // eslint-disable-next-line no-new-func -- intentional: see compileExpression above.
+  // eslint-disable-next-line no-new-func -- intentional: script actions are trusted schema-supplied statement blocks; hosts that need a sandbox swap in their own LinkageEvaluators.
   const fn = new Function(...SCOPE_PARAMS, `"use strict"; ${source}`);
 
   return (($form, $vars, $user, $node, $now) => fn($form, $form, $vars, $user, $node, $now)) as ScriptFn;
 }
 
 /**
- * Inert sentinel cached for sources that fail to compile (syntax errors,
- * CSP-blocked `new Function`). Returning `undefined` is lane-appropriate for
- * every caller: a condition coerces it to `false`, assign / script lanes treat
- * it as "no value / no patch". Caching the failure means a broken expression
- * throws once at compile, not on every keystroke-driven re-evaluation.
+ * Inert sentinel cached for script sources that fail to compile (syntax errors,
+ * CSP-blocked `new Function`). Returning `undefined` is lane-appropriate for a
+ * script action: it becomes "no state patch". Caching the failure means a
+ * broken script throws once at compile, not on every keystroke-driven
+ * re-evaluation.
  */
 function inertEvaluation(): undefined {
   // Intentionally empty: see doc comment.
-}
-
-function getCompiledExpression(source: string): ExpressionFn {
-  let fn = expressionCache.get(source);
-
-  if (!fn) {
-    try {
-      fn = compileExpression(source);
-    } catch {
-      fn = inertEvaluation;
-    }
-
-    expressionCache.set(source, fn);
-  }
-
-  return fn;
 }
 
 function getCompiledScript(source: string): ScriptFn {
@@ -103,6 +71,20 @@ function getCompiledScript(source: string): ScriptFn {
   }
 
   return fn;
+}
+
+function createExpressionScope(
+  values: Record<string, unknown>,
+  context: ExpressionContext | undefined
+): Scope {
+  return {
+    field: values,
+    $form: values,
+    $vars: context?.variables ?? EMPTY_SCOPE,
+    $user: context?.user ?? EMPTY_SCOPE,
+    $node: context?.node ?? EMPTY_SCOPE,
+    $now: Date.now()
+  };
 }
 
 function runCompiled<T>(
@@ -125,7 +107,7 @@ export function defaultEvaluateExpression(
   context?: ExpressionContext
 ): boolean {
   try {
-    return Boolean(runCompiled(getCompiledExpression(source), values, context));
+    return evaluateSync(source, createExpressionScope(values, context)) === true;
   } catch {
     return false;
   }
@@ -137,7 +119,7 @@ export function defaultEvaluateAssignExpression(
   context?: ExpressionContext
 ): unknown {
   try {
-    return runCompiled(getCompiledExpression(source), values, context);
+    return evaluateSync(source, createExpressionScope(values, context));
   } catch {
     return undefined;
   }
@@ -167,8 +149,9 @@ function noopDispatchEffect(): void {
 
 /**
  * Resolves a host-supplied {@link LinkageEvaluators} to a fully populated set,
- * filling missing slots with the default `new Function` evaluators and the
- * no-op effect dispatcher.
+ * filling missing expression slots with the shared ZEN evaluator, script slots
+ * with the default `new Function` evaluator, and effects with the no-op
+ * dispatcher.
  */
 export function resolveLinkageEvaluators(overrides?: LinkageEvaluators): Required<LinkageEvaluators> {
   return {

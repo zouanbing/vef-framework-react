@@ -60,7 +60,7 @@ export interface ConditionEditorProps {
  * Top-level wrapper. The root condition is always a `group` or an
  * `expression` — a bare `leaf` is never the rule's top condition. Mode
  * switching here is a destructive replace (group ↔ expression) because
- * there is no general way to reverse-translate a free-form JS expression
+ * there is no general way to reverse-translate a free-form ZEN expression
  * back into a structured tree; a switch that would discard authored content
  * is gated behind a confirmation.
  */
@@ -171,7 +171,7 @@ const ExpressionConditionEditor: FC<ExpressionConditionEditorProps> = ({
   return (
     <div css={conditionGroupCss}>
       <div css={conditionGroupHeaderCss}>
-        <span css={expressionHeaderLabelCss}>JS 表达式（返回布尔）</span>
+        <span css={expressionHeaderLabelCss}>ZEN 表达式（返回布尔）</span>
 
         {authored && sourceOptions.length > 0
           ? (
@@ -190,9 +190,8 @@ const ExpressionConditionEditor: FC<ExpressionConditionEditorProps> = ({
       <div css={codeEditorWrapperCss}>
         <CodeEditor
           extensions={assistExtensions}
-          language="javascript"
           minHeight={60}
-          placeholder='field.A === "foo" && field.B > 10'
+          placeholder="field.A == 'foo' and field.B > 10"
           showFoldGutter={false}
           showLineNumbers={false}
           size="small"
@@ -364,9 +363,8 @@ const GroupConditionEditor: FC<GroupConditionEditorProps> = ({
               <div css={[codeEditorWrapperCss, conditionRowFullCss]}>
                 <CodeEditor
                   extensions={assistExtensions}
-                  language="javascript"
                   minHeight={36}
-                  placeholder="JS 表达式"
+                  placeholder="ZEN 表达式"
                   showFoldGutter={false}
                   showLineNumbers={false}
                   size="small"

@@ -10,6 +10,11 @@ import { createDefaultRegistry } from "../engine/registry/defaults";
 import { FormRenderer } from "../render/form-renderer";
 import { RegistryProvider } from "../store/engine-provider";
 
+vi.mock("@vef-framework-react/expression", async () => {
+  const { mockExpressionPackage } = await import("../test-expression-engine");
+  return mockExpressionPackage();
+});
+
 function field(key: string, overrides: Partial<TextfieldField> = {}): TextfieldField {
   return {
     id: `Field_${key}`,
@@ -52,7 +57,7 @@ function gatedSchema(unlocked: boolean): FormSchema {
           rules: [
             {
               id: "R1",
-              trigger: { kind: "condition", condition: { kind: "expression", source: "$vars.unlocked === true" } },
+              trigger: { kind: "condition", condition: { kind: "expression", source: "$vars.unlocked == true" } },
               actions: [{ type: "show" }]
             }
           ]
@@ -72,7 +77,7 @@ function gatedSchema(unlocked: boolean): FormSchema {
 
 /**
  * A form where typing in `trigger` fires a `change` → `set_variable` count = "1",
- * and `watcher` (hidden by default) shows once `$vars.count === "1"`.
+ * and `watcher` (hidden by default) shows once `$vars.count == "1"`.
  */
 function countingSchema(): FormSchema {
   return {
@@ -100,7 +105,7 @@ function countingSchema(): FormSchema {
           rules: [
             {
               id: "R2",
-              trigger: { kind: "condition", condition: { kind: "expression", source: "$vars.count === '1'" } },
+              trigger: { kind: "condition", condition: { kind: "expression", source: "$vars.count == '1'" } },
               actions: [{ type: "show" }]
             }
           ]
@@ -363,7 +368,7 @@ describe("runtime effect lane", () => {
             rules: [
               {
                 id: "R1",
-                trigger: { kind: "condition", condition: { kind: "expression", source: "$form.trigger !== ''" } },
+                trigger: { kind: "condition", condition: { kind: "expression", source: "$form.trigger != ''" } },
                 actions: [
                   {
                     type: "set_variable",
@@ -407,7 +412,7 @@ describe("runtime effect lane", () => {
             rules: [
               {
                 id: "R1",
-                trigger: { kind: "condition", condition: { kind: "expression", source: "$form.trigger !== ''" } },
+                trigger: { kind: "condition", condition: { kind: "expression", source: "$form.trigger != ''" } },
                 actions: [
                   {
                     type: "set_field",

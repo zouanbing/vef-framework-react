@@ -1,5 +1,4 @@
 import { CompletionContext } from "@codemirror/autocomplete";
-import { javascript } from "@codemirror/lang-javascript";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
@@ -45,7 +44,7 @@ describe("buildCompletionSource", () => {
 
 function lint(doc: string, keys: string[] = ["age", "name"]) {
   const view = new EditorView({
-    state: EditorState.create({ doc, extensions: [javascript()] })
+    state: EditorState.create({ doc })
   });
 
   try {
@@ -65,13 +64,13 @@ describe("lintUnknownFieldMembers", () => {
   });
 
   it("accepts known keys on field and $form", () => {
-    expect(lint("field.age > 1 && $form.name === 'x'")).toHaveLength(0);
+    expect(lint("field.age > 1 and $form.name == 'x'")).toHaveLength(0);
   });
 
   it("leaves host-injected roots alone", () => {
     // `$vars` / `$user` / `$node` members come from the host at runtime — the
     // schema cannot enumerate them, so they are not linted.
-    expect(lint("$vars.anything && $user.id")).toHaveLength(0);
+    expect(lint("$vars.anything and $user.id")).toHaveLength(0);
   });
 
   it("stays quiet when the scope has no keyed fields at all", () => {

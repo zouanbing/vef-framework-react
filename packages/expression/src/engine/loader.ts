@@ -1,7 +1,5 @@
 import type { InitInput } from "@gorules/zen-engine-wasm";
 
-import type { ExpressionAnalysis, ExpressionType, ExpressionTypeSpan } from "./intellisense";
-
 import { isUndefined } from "@vef-framework-react/shared";
 
 import { ExpressionError, ExpressionNotReadyError } from "./errors";
@@ -48,21 +46,6 @@ export interface ExpressionEngine {
    * Validate a unary expression; returns ZEN's diagnostic payload.
    */
   validateUnary: (expression: string) => unknown;
-  /**
-   * Return ZEN's completion metadata, for building an expression editor.
-   */
-  getCompletions: () => unknown;
-  /**
-   * Type-check `source` against a `variables` context, returning the root context
-   * type and the inferred type of every span (`unary` selects test-expression
-   * checking). Powers an editor's type-aware completion / hover / diagnostics.
-   */
-  analyze: (variables: ExpressionType, source: string, unary: boolean) => ExpressionAnalysis;
-  /**
-   * Whether `actual` satisfies (is assignable to) `expected`. Powers
-   * expected-return-type validation in an editor.
-   */
-  satisfies: (actual: ExpressionType, expected: ExpressionType) => boolean;
   /**
    * Whether the underlying wasm module reports itself ready.
    */
@@ -132,36 +115,6 @@ export function loadEngine(): Promise<ExpressionEngine> {
       evaluateUnary: (expression: string, context: ExpressionContext = {}): boolean => evaluateSafely(expression, () => zen.evaluateUnaryExpression(expression, context)),
       validate: (expression: string): unknown => zen.validateExpression(expression),
       validateUnary: (expression: string): unknown => zen.validateUnaryExpression(expression),
-      getCompletions: (): unknown => zen.getCompletions(),
-      analyze: (variables: ExpressionType, source: string, unary: boolean): ExpressionAnalysis => {
-        const variableType = zen.VariableType.fromJson(variables);
-
-        try {
-          const rootKind = variableType.toJson();
-          // `typeCheck` is typed `any` by the wasm bindings; gate it to `unknown`,
-          // then assert the element shape only once it is confirmed an array. The
-          // shape is fixed by the pinned zen-engine-wasm version and consumers read
-          // it defensively, so a single boundary assertion here is sound.
-          const rawSpans: unknown = unary ? variableType.typeCheckUnary(source) : variableType.typeCheck(source);
-          return {
-            rootKind,
-            spans: Array.isArray(rawSpans) ? rawSpans as ExpressionTypeSpan[] : []
-          };
-        } finally {
-          variableType.free();
-        }
-      },
-      satisfies: (actual: ExpressionType, expected: ExpressionType): boolean => {
-        const actualType = zen.VariableType.fromJson(actual);
-        const expectedType = zen.VariableType.fromJson(expected);
-
-        try {
-          return actualType.satisfies(expectedType);
-        } finally {
-          actualType.free();
-          expectedType.free();
-        }
-      },
       isReady: (): boolean => zen.isReady()
     });
 
@@ -169,8 +122,8 @@ export function loadEngine(): Promise<ExpressionEngine> {
     return engine;
   })().catch((error: unknown) => {
     // Drop the rejected promise so a later imperative call can retry the load,
-    // but remember the failure so the React provider can surface it to an error
-    // boundary instead of re-suspending on a fresh load forever.
+    // but remember the failure so UI gates can surface it to an error boundary
+    // instead of re-suspending on a fresh load forever.
     enginePromise = null;
     engineError = new ExpressionError(loadFailureMessage(), undefined, error);
     throw engineError;
@@ -188,8 +141,8 @@ export function isEngineReady(): boolean {
 
 /**
  * The error from the last failed {@link loadEngine} attempt, or `null`. Used by
- * the React provider to surface a wasm-load failure to an error boundary rather
- * than suspending forever, and by imperative pollers to tell "failed" apart from
+ * UI gates to surface a wasm-load failure to an error boundary rather than
+ * suspending forever, and by imperative pollers to tell "failed" apart from
  * "still loading". Cleared when a new load starts or {@link resetEngine}.
  */
 export function getEngineError(): ExpressionError | null {
