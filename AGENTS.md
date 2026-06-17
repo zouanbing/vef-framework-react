@@ -38,10 +38,18 @@ VEF Framework is a React 19 application framework published to npm under `@vef-f
 
 ### Release
 
-- `pnpm version:patch|minor|major` — Bump versions across the monorepo
-- `pnpm release:patch|minor|major` — Bump + clean + build + publish
-- `pnpm pub` — Publish all packages without a version bump
-- `pnpm unpub` — Roll back published versions (see `scripts/unpublish.ts`)
+Publishing is **CI-triggered by pushing a `v*` tag** (`.github/workflows/release.yml`) — not by a local `pnpm pub`. Flow:
+
+1. `pnpm version:patch|minor|major` — bump root + every package (`--no-git-tag-version`, so no commit/tag).
+2. Commit the bump as `chore(release): vX.Y.Z`.
+3. `git tag -a vX.Y.Z -m vX.Y.Z` — the tag **must equal the root `package.json` version** (CI hard-fails otherwise).
+4. `git push --follow-tags` — the `v*` tag fires `release.yml`: `install --frozen-lockfile` → tag/version check → `typecheck` → `lint` → `test` → `build` → `pnpm publish` → GitHub Release (notes via git-cliff from Conventional Commits).
+
+- Land feature commits **before** the `chore(release)` commit so git-cliff picks them up.
+- **Don't publish with `pnpm pub` / `pnpm release:*` for a real release** — they publish from your machine (local npm auth, skipping CI gates) and double-publish if combined with the tag flow; a published version can't be re-published.
+- A failed CI gate blocks the publish but the tag remains — delete the tag, fix, re-tag.
+
+Scripts: `pnpm version:patch|minor|major` (bump only) · `pnpm release:patch|minor|major` (local bump + build + publish, the non-CI path) · `pnpm pub` (local publish, no bump) · `pnpm unpub` (roll back, see `scripts/unpublish.ts`).
 
 ## Architecture
 
@@ -237,6 +245,8 @@ Reach for these patterns before inventing new ones:
 
 - Gating: `pnpm typecheck` → `pnpm lint` → `pnpm test`
 - Informational: `pnpm test:coverage` (uploaded as artifact but not gating)
+
+`.github/workflows/release.yml` runs on a pushed `v*` tag — re-runs the gates, then `pnpm publish` and a GitHub Release (see [Release](#release)).
 
 ### Skills to Use
 
