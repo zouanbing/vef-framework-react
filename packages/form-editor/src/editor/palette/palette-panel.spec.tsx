@@ -50,7 +50,7 @@ function getStoreApi(storeApi: FormEditorStoreApi | null): FormEditorStoreApi {
   return storeApi;
 }
 
-function setupPalettePanel(layout: EditorLayoutMode = "comfortable"): FormEditorStoreApi {
+function setupPalettePanel(layout: EditorLayoutMode = "docked"): FormEditorStoreApi {
   let storeApi: FormEditorStoreApi | null = null;
 
   render(

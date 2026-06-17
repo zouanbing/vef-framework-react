@@ -32,12 +32,7 @@ const toolbarCss = css({
   zIndex: 2,
   flexShrink: 0,
 
-  // Compact mode trims gaps so the remaining buttons can breathe.
-  "&[data-layout='compact']": {
-    gap: 10,
-    padding: "0 16px"
-  },
-
+  // Drawer mode (narrow host) trims gaps so the condensed buttons can breathe.
   "&[data-layout='drawer']": {
     gap: 8,
     padding: "0 12px"
@@ -208,7 +203,7 @@ const primaryActionButtonCss = css(toolbarActionButtonCss, {
 });
 
 /**
- * Static menu surfaced under the "更多" dropdown in compact / drawer layouts.
+ * Static menu surfaced under the "更多" dropdown in the drawer layout.
  * Hoisted to module scope because nothing in it depends on render state —
  * keeping it here lets antd Dropdown reuse the same items reference across
  * renders so its internal Menu does not need to diff the array.
@@ -269,10 +264,9 @@ export interface ToolbarProps {
  * for utility actions, and a primary `发布` button as the CTA on the right.
  *
  * Layout adaptivity (via `useEditorLayout`):
- * - `comfortable`: full toolbar, every action visible
- * - `compact`: import/export/clear collapse into a "更多" menu, toggle
- * pills drop their labels, summary chip stays
- * - `drawer`: same as compact plus summary chip hides
+ * - `docked`: full toolbar, every action visible
+ * - `drawer`: import/export/clear collapse into a "更多" menu, the toggle pills
+ * drop their labels, and the summary chip hides
  */
 export function Toolbar({ brand, onPublish }: ToolbarProps): ReactElement {
   const pastLength = useFormEditorStore(s => s.past.length);
@@ -289,7 +283,7 @@ export function Toolbar({ brand, onPublish }: ToolbarProps): ReactElement {
 
   const [ioMode, setIoMode] = useState<SchemaIoMode>(null);
 
-  const isCondensed = layout !== "comfortable";
+  const isCondensed = layout === "drawer";
   const showSummary = layout !== "drawer";
 
   const handleClear = (): void => {

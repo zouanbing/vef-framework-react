@@ -143,7 +143,7 @@ function setupToolbar(options: { layout?: EditorLayoutMode; schema?: FormSchema;
   render(
     <FormEditorStoreProvider initialState={{ schema: options.schema ?? makeSchema() }}>
       <RegistryProvider registries={{ pc: createDefaultRegistry(), mobile: createDefaultRegistry() }}>
-        <EditorLayoutProvider value={options.layout ?? "comfortable"}>
+        <EditorLayoutProvider value={options.layout ?? "docked"}>
           <Harness />
         </EditorLayoutProvider>
       </RegistryProvider>
@@ -323,7 +323,7 @@ describe("Toolbar", () => {
   describe("condensed more menu", () => {
     it("hides the inline io actions and opens schema export from the menu", async () => {
       const user = userEvent.setup();
-      setupToolbar({ layout: "compact" });
+      setupToolbar({ layout: "drawer" });
 
       expect(screen.queryByRole("button", { name: "导出" })).not.toBeInTheDocument();
 
@@ -338,7 +338,7 @@ describe("Toolbar", () => {
     it("routes the menu clear action through the confirm dialog", async () => {
       const vef = installVefGlobal();
       const user = userEvent.setup();
-      setupToolbar({ layout: "compact" });
+      setupToolbar({ layout: "drawer" });
 
       await user.click(screen.getByRole("button", { name: "更多操作" }));
       await user.click(await screen.findByText("清空表单"));

@@ -7,41 +7,29 @@ import { createContext, use, useEffect, useRef, useState } from "react";
  * width (not the viewport — the editor can be embedded inside a host shell
  * that already eats horizontal space).
  *
- * - `comfortable`: both panels float side-by-side without competing for room
- * - `compact`: palette narrows, toolbar folds secondary actions into a menu
- * - `drawer`: properties panel detaches to a full-width drawer overlay so
- * the canvas keeps usable width on small screens
+ * - `docked`: both side panels sit beside the canvas at their full width
+ * (palette 296, properties 400), the toolbar shows every action
+ * - `drawer`: on a narrow host the properties panel detaches into a full-height
+ * overlay and the palette collapses to an icon rail, so the canvas keeps its
+ * width instead of being squeezed
  */
-export type EditorLayoutMode = "comfortable" | "compact" | "drawer";
+export type EditorLayoutMode = "docked" | "drawer";
 
-const EditorLayoutContext = createContext<EditorLayoutMode>("comfortable");
+const EditorLayoutContext = createContext<EditorLayoutMode>("docked");
 
 /**
- * Width thresholds (in CSS pixels of the editor *root*, not the viewport).
- *
- * Picked from the playground audit running inside the starter shell:
- * - 1280 root width is the sweet spot where 296px palette + 380px floating
- * properties + a usable canvas (≥520px) all coexist without crowding
- * - 1100-1280 still fits both panels but with cramped buttons, so the
- * toolbar collapses secondary actions into a "更多" menu and the toggle
- * pills drop their labels
- * - below 1100 the canvas would lose too much width to a floating
- * properties panel; we detach properties into a drawer overlay so the
- * canvas keeps the full stage width while editing layout
+ * Width threshold (in CSS pixels of the editor *root*, not the viewport) at or
+ * above which the docked layout is used: the 296px palette + 400px properties
+ * panel leave a usable (≥520px) canvas, i.e. `296 + 400 + 520 ≈ 1220`. Below it
+ * the canvas would lose too much room, so the editor detaches the properties
+ * panel into a drawer overlay and rails the palette.
  */
-const COMFORTABLE_MIN = 1280;
-const COMPACT_MIN = 1100;
+const DRAWER_MIN = 1220;
 
 export function resolveEditorLayoutMode(width: number): EditorLayoutMode {
-  if (width === 0 || width >= COMFORTABLE_MIN) {
-    return "comfortable";
-  }
-
-  if (width >= COMPACT_MIN) {
-    return "compact";
-  }
-
-  return "drawer";
+  // A zero width is the pre-measure state; assume the roomy docked layout until
+  // the first ResizeObserver callback corrects it.
+  return width === 0 || width >= DRAWER_MIN ? "docked" : "drawer";
 }
 
 export interface EditorLayoutProviderProps {
@@ -100,7 +88,7 @@ export interface EditorLayoutMeasure {
  */
 export function useEditorLayoutMeasure(): EditorLayoutMeasure {
   const ref = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<EditorLayoutMode>("comfortable");
+  const [mode, setMode] = useState<EditorLayoutMode>("docked");
   const modeRef = useRef<EditorLayoutMode>(mode);
 
   useEffect(() => {

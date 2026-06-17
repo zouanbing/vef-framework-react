@@ -9,19 +9,16 @@ import { globalCssVars } from "@vef-framework-react/components";
  * right. They mirror each other (border + shadow face the canvas) and narrow
  * together as the editor root shrinks.
  *
- * Three layouts are supported (see `editor-layout-context.tsx`):
- * - comfortable: palette 296, properties 380
- * - compact: palette 256, properties 360, toolbar folds extras
+ * Two layouts are supported (see `editor-layout-context.tsx`):
+ * - docked: palette 296, properties 400
  * - drawer: the palette collapses to an icon rail and the properties panel
  * floats over the canvas's right edge, so the canvas keeps real width
  * inside narrow hosts (wizard steps, split panes).
  */
 export const PALETTE_DOCK_WIDTH = 296;
-export const PALETTE_DOCK_WIDTH_COMPACT = 256;
 export const PALETTE_DOCK_WIDTH_DRAWER = 64;
 
-export const PROPERTIES_PANEL_WIDTH = 380;
-export const PROPERTIES_PANEL_WIDTH_COMPACT = 360;
+export const PROPERTIES_PANEL_WIDTH = 400;
 export const PROPERTIES_PANEL_WIDTH_DRAWER = 320;
 
 export const paletteDockCss = css({
@@ -43,10 +40,6 @@ export const paletteDockCss = css({
 
   "&[hidden]": {
     display: "none"
-  },
-
-  "&[data-layout='compact']": {
-    width: PALETTE_DOCK_WIDTH_COMPACT
   },
 
   "&[data-layout='drawer']": {
@@ -76,10 +69,6 @@ export const propertiesDockCss = css({
 
   "&[hidden]": {
     display: "none"
-  },
-
-  "&[data-layout='compact']": {
-    width: PROPERTIES_PANEL_WIDTH_COMPACT
   },
 
   // Narrow hosts: the panel floats over the canvas's right edge instead of

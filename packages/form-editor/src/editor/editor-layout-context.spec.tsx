@@ -72,11 +72,10 @@ afterEach(() => {
 
 describe("resolveEditorLayoutMode", () => {
   it("maps widths to the documented bands", () => {
-    expect(resolveEditorLayoutMode(0)).toBe("comfortable");
-    expect(resolveEditorLayoutMode(1280)).toBe("comfortable");
-    expect(resolveEditorLayoutMode(1279)).toBe("compact");
-    expect(resolveEditorLayoutMode(1100)).toBe("compact");
-    expect(resolveEditorLayoutMode(1099)).toBe("drawer");
+    expect(resolveEditorLayoutMode(0)).toBe("docked");
+    expect(resolveEditorLayoutMode(1220)).toBe("docked");
+    expect(resolveEditorLayoutMode(1219)).toBe("drawer");
+    expect(resolveEditorLayoutMode(900)).toBe("drawer");
   });
 });
 
@@ -93,11 +92,8 @@ describe("useEditorLayoutMeasure", () => {
     act(() => lastObserver().resize(1000));
     expect(screen.getByTestId("shell")).toHaveTextContent("drawer");
 
-    act(() => lastObserver().resize(1150));
-    expect(screen.getByTestId("shell")).toHaveTextContent("compact");
-
     act(() => lastObserver().resize(1400));
-    expect(screen.getByTestId("shell")).toHaveTextContent("comfortable");
+    expect(screen.getByTestId("shell")).toHaveTextContent("docked");
   });
 
   it("does not re-render for per-pixel resizes inside one band", () => {
