@@ -4,13 +4,34 @@ export type Gender = "male" | "female" | "unknown";
 
 export type UserMenuType = LiteralUnion<"directory" | "menu" | "view" | "report", string>;
 
+/**
+ * App-specific extra metadata a menu may carry beyond `params` / `search`.
+ * Defaults to an open record; augment `Register['menuMeta']` to type the extra
+ * keys exactly (which also closes `meta` to them).
+ */
+type MenuMetaExtra = Register extends {
+  menuMeta: infer T extends AnyObject;
+} ? T : Record<string, unknown>;
+
+/**
+ * Metadata a menu binds for navigation and active-menu resolution. `params` and
+ * `search` are flat string maps — both serialize into the URL, where non-string
+ * values carry no meaning, and each menu binds its own keys, so they are fixed
+ * rather than globally typed. Host apps type any extra `meta` keys via
+ * `Register['menuMeta']`.
+ */
+export type UserMenuMeta = {
+  params?: Record<string, string>;
+  search?: Record<string, string>;
+} & MenuMetaExtra;
+
 export interface UserMenu {
   type: UserMenuType;
   path: string;
   name: string;
-  icon?: MaybeNull<string>;
-  meta?: MaybeNull<Record<string, unknown>>;
-  children?: MaybeNull<UserMenu[]>;
+  icon?: string;
+  meta?: UserMenuMeta;
+  children?: UserMenu[];
 }
 
 /**
@@ -26,6 +47,7 @@ export interface UserMenu {
  *     appCustomState: {
  *       appId?: string;
  *     };
+ *     menuMeta: { badge?: number };
  *     userDetails: {
  *       department: string;
  *       organization: string;

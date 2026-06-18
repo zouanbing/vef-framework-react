@@ -32,7 +32,7 @@ export function useActiveMenuKey(): string | undefined {
     }
 
     return resolveActiveMenuKey(userMenuMap.values(), {
-      fullPath: match.fullPath as string,
+      fullPath: match.fullPath,
       params: match.params,
       search: match.search
     });

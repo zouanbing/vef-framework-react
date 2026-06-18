@@ -84,7 +84,7 @@ describe("resolveActiveMenuKey", () => {
       const key = resolveActiveMenuKey([bare], {
         fullPath: "/list",
         params: {},
-        search: { page: 2 }
+        search: { page: "2" }
       });
 
       expect(key).toBe(menuKeyOf("/list"));

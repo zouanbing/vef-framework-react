@@ -132,7 +132,7 @@ function resolveMenuKey(context: RouterContext, location: ParsedLocation): strin
     .matchRoutes(location.pathname, location.search, { preload: false, throwOnError: false })
     .at(-1)!;
 
-  return match.fullPath as string;
+  return match.fullPath;
 }
 
 export function createLayoutRouteOptions<

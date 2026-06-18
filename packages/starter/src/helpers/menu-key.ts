@@ -1,26 +1,30 @@
-import type { UserMenu } from "../types";
+import type { MaybeUndefined } from "@vef-framework-react/shared";
 
-import { hashKey, isPlainObject } from "@vef-framework-react/shared";
+import type { UserMenu, UserMenuMeta } from "../types";
 
-type Bag = Record<string, unknown>;
+import { hashKey } from "@vef-framework-react/shared";
+
+type Bag = Record<string, string>;
 
 /**
- * Normalize a params / search bag: a non-object or empty object collapses to
- * `undefined`, so a menu that omits the dimension and a route that carries an
- * empty one (`{}`) produce the same hash.
+ * Drop an empty bag to `undefined` so a menu that omits a dimension and a route
+ * that carries an empty one (`{}`) hash alike. Inputs are already typed objects
+ * (a menu's `meta` params/search and the router match), so no shape guard is
+ * needed — only the empty-vs-absent normalization.
  */
-function normalizeBag(value: unknown): Bag | undefined {
-  return isPlainObject(value) && Object.keys(value).length > 0 ? (value as Bag) : undefined;
+function normalize(bag: MaybeUndefined<Bag>): MaybeUndefined<Bag> {
+  return bag && Object.keys(bag).length > 0 ? bag : undefined;
 }
 
 /**
  * The active route exposed by the router match, projected to the dimensions a
- * menu can bind.
+ * menu binds — both flat string maps, matching the `params` / `search` a menu
+ * pins in `meta`.
  */
 export interface ActiveRoute {
   fullPath: string;
-  params?: unknown;
-  search?: unknown;
+  params?: Record<string, string>;
+  search?: Record<string, string>;
 }
 
 /**
@@ -29,17 +33,15 @@ export interface ActiveRoute {
  * that differ only by their `key` param get distinct identities, which is what
  * lets exactly one of them highlight, carry its own tab, and resolve its title.
  */
-export function menuKeyOf(path: string, meta?: UserMenu["meta"]): string {
-  const bag = isPlainObject(meta) ? meta : undefined;
-
-  return `${path}|${hashKey(normalizeBag(bag?.params))}|${hashKey(normalizeBag(bag?.search))}`;
+export function menuKeyOf(path: string, meta?: UserMenuMeta): string {
+  return `${path}|${hashKey(normalize(meta?.params))}|${hashKey(normalize(meta?.search))}`;
 }
 
 /**
- * Shallow value-equality of two normalized bags (route params are flat string
- * maps, so a shallow compare is sufficient and avoids ordering pitfalls).
+ * Shallow value-equality of two normalized bags (params are flat string maps, so
+ * a shallow compare is sufficient and avoids ordering pitfalls).
  */
-function bagsEqual(a: Bag | undefined, b: Bag | undefined): boolean {
+function bagsEqual(a: MaybeUndefined<Bag>, b: MaybeUndefined<Bag>): boolean {
   if (a === b) {
     return true;
   }
@@ -59,7 +61,7 @@ function bagsEqual(a: Bag | undefined, b: Bag | undefined): boolean {
  * search, so a bare `/list` menu still highlights when the URL adds runtime
  * query like `?page=2`.
  */
-function searchMatches(routeSearch: Bag | undefined, menuSearch: Bag | undefined): boolean {
+function searchMatches(routeSearch: MaybeUndefined<Bag>, menuSearch: MaybeUndefined<Bag>): boolean {
   if (!menuSearch) {
     return true;
   }
@@ -78,9 +80,9 @@ function searchMatches(routeSearch: Bag | undefined, menuSearch: Bag | undefined
  * variant) the most search-specific one wins. Returns its {@link menuKeyOf}, or
  * `undefined` when no menu owns the route.
  */
-export function resolveActiveMenuKey(menus: Iterable<Readonly<UserMenu>>, route: ActiveRoute): string | undefined {
-  const routeParams = normalizeBag(route.params);
-  const routeSearch = normalizeBag(route.search);
+export function resolveActiveMenuKey(menus: Iterable<Readonly<UserMenu>>, route: ActiveRoute): MaybeUndefined<string> {
+  const routeParams = normalize(route.params);
+  const routeSearch = normalize(route.search);
 
   let bestKey: string | undefined;
   let bestSpecificity = -1;
@@ -90,13 +92,11 @@ export function resolveActiveMenuKey(menus: Iterable<Readonly<UserMenu>>, route:
       continue;
     }
 
-    const meta = isPlainObject(menu.meta) ? menu.meta : undefined;
-
-    if (!bagsEqual(normalizeBag(meta?.params), routeParams)) {
+    if (!bagsEqual(normalize(menu.meta?.params), routeParams)) {
       continue;
     }
 
-    const menuSearch = normalizeBag(meta?.search);
+    const menuSearch = normalize(menu.meta?.search);
 
     if (!searchMatches(routeSearch, menuSearch)) {
       continue;

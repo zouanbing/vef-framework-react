@@ -13,7 +13,8 @@ export function useMenuNavigate() {
   const navigate = useNavigate();
 
   return useCallback(({ path, meta }: UserMenu) => {
-    const { params, search } = meta ?? {};
+    const params = meta?.params;
+    const search = meta?.search;
 
     return navigate({
       to: path,
