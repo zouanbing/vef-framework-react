@@ -1,9 +1,9 @@
-import type { RouteLoaderFn, RouteOptions } from "@tanstack/react-router";
+import type { ParsedLocation, RouteLoaderFn, RouteOptions } from "@tanstack/react-router";
 import type { DynamicIconName, MenuItem } from "@vef-framework-react/components";
 import type { AnyObject, Awaitable, EmptyObject, Except } from "@vef-framework-react/shared";
 
 import type { LayoutProps } from "../components";
-import type { UserInfo, UserMenu } from "../types";
+import type { RouterContext, UserInfo, UserMenu } from "../types";
 
 import { Outlet, redirect } from "@tanstack/react-router";
 import { DynamicIcon, Loader } from "@vef-framework-react/components";
@@ -12,13 +12,18 @@ import { Error, Layout, NotFound } from "../components";
 import { ACCESS_DENIED_ROUTE_PATH, LOGIN_ROUTE_PATH } from "../constants";
 import { useAppStore } from "../stores";
 
-export type LayoutBeforeLoadArgs = Parameters<NonNullable<RouteOptions<unknown, any, any>["beforeLoad"]>>[0];
+type BaseLayoutBeforeLoadArgs = Parameters<NonNullable<RouteOptions<unknown, any, any>["beforeLoad"]>>[0];
+
+export type LayoutBeforeLoadArgs
+  = Except<BaseLayoutBeforeLoadArgs, "context"> & {
+    context: RouterContext & BaseLayoutBeforeLoadArgs["context"];
+  };
 
 type BaseLayoutLoaderArgs = Parameters<RouteLoaderFn<unknown, any, any>>[0];
 
 export type LayoutLoaderArgs<TBeforeLoadContext extends AnyObject = EmptyObject>
   = Except<BaseLayoutLoaderArgs, "context"> & {
-    context: BaseLayoutLoaderArgs["context"] & TBeforeLoadContext;
+    context: RouterContext & BaseLayoutLoaderArgs["context"] & TBeforeLoadContext;
   };
 
 interface LayoutRouteOptions<
@@ -93,6 +98,25 @@ function buildMenuItems(menus: UserMenu[]): MenuItem[] {
     .map(menu => Object.freeze(buildMenuItem(menu)));
 }
 
+/**
+ * Resolve the menu key for the current location.
+ *
+ * Menus are keyed by their route template (`/report/$key`), but
+ * `location.pathname` is the instantiated path (`/report/test123`). Matching
+ * the location against the route tree yields the leaf route's `fullPath`
+ * (the template), so a parameterized route resolves to the menu that owns it
+ * instead of failing the access check against a path the menu can never hold.
+ * Mirrors the `fullPath` lookup used for tab tracking in `createRouter`.
+ */
+function resolveMenuKey(context: RouterContext, location: ParsedLocation): string {
+  const { router } = context;
+  const match = router
+    .matchRoutes(location.pathname, location.search, { preload: false, throwOnError: false })
+    .at(-1)!;
+
+  return match.fullPath as string;
+}
+
 export function createLayoutRouteOptions<
   TBeforeLoadContext extends AnyObject = EmptyObject,
   TLoaderData = void
@@ -112,14 +136,14 @@ export function createLayoutRouteOptions<
 
   return {
     beforeLoad: async (args: LayoutBeforeLoadArgs): Promise<TBeforeLoadContext> => {
-      const { location } = args;
+      const { location, context } = args;
       const { isAuthenticated, userMenuMap } = useAppStore.getState();
 
       if (!isAuthenticated) {
         throw redirect({ to: LOGIN_ROUTE_PATH, search: { redirect: location.href } });
       }
 
-      if (userMenuMap && !userMenuMap.has(location.pathname)) {
+      if (userMenuMap && !userMenuMap.has(resolveMenuKey(context, location))) {
         throw redirect({ to: ACCESS_DENIED_ROUTE_PATH, replace: true });
       }
 
@@ -128,7 +152,7 @@ export function createLayoutRouteOptions<
       return beforeLoadContext ?? ({} as TBeforeLoadContext);
     },
     loader: async (args: LayoutLoaderArgs<TBeforeLoadContext>): Promise<TLoaderData | undefined> => {
-      const { location } = args;
+      const { location, context } = args;
       const { permissionTokens, ...userInfo } = await fetchUserInfo();
       const { menus } = userInfo;
 
@@ -145,7 +169,7 @@ export function createLayoutRouteOptions<
         permissionTokens: Object.freeze(new Set(permissionTokens))
       });
 
-      if (!userMenuMap.has(location.pathname)) {
+      if (!userMenuMap.has(resolveMenuKey(context, location))) {
         throw redirect({ to: ACCESS_DENIED_ROUTE_PATH, replace: true });
       }
 
