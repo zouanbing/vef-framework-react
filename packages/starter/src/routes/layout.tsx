@@ -10,6 +10,7 @@ import { DynamicIcon, Loader } from "@vef-framework-react/components";
 
 import { Error, Layout, NotFound } from "../components";
 import { ACCESS_DENIED_ROUTE_PATH, LOGIN_ROUTE_PATH } from "../constants";
+import { menuKeyOf } from "../helpers/menu-key";
 import { useAppStore } from "../stores";
 
 type BaseLayoutBeforeLoadArgs = Parameters<NonNullable<RouteOptions<unknown, any, any>["beforeLoad"]>>[0];
@@ -41,7 +42,7 @@ function buildUserMenuMap(menus: UserMenu[], menuMap = new Map<string, Readonly<
       buildUserMenuMap(menu.children, menuMap);
     }
 
-    menuMap.set(menu.path, menu);
+    menuMap.set(menuKeyOf(menu.path, menu.meta), menu);
   }
 
   return menuMap;
@@ -49,19 +50,36 @@ function buildUserMenuMap(menus: UserMenu[], menuMap = new Map<string, Readonly<
 
 function buildMenuPathMap(
   menus: UserMenu[],
-  parentPath: string[] = [],
+  parentChain: string[] = [],
   menuPathMap = new Map<string, readonly string[]>()
 ): Map<string, readonly string[]> {
   for (const menu of menus) {
-    const currentPath = [...parentPath, menu.path];
-    menuPathMap.set(menu.path, currentPath);
+    const currentChain = [...parentChain, menuKeyOf(menu.path, menu.meta)];
+    menuPathMap.set(menuKeyOf(menu.path, menu.meta), currentChain);
 
     if (menu.children) {
-      buildMenuPathMap(menu.children, currentPath, menuPathMap);
+      buildMenuPathMap(menu.children, currentChain, menuPathMap);
     }
   }
 
   return menuPathMap;
+}
+
+/**
+ * Collect the distinct route templates the menus cover. The route access check
+ * is per-template (any `/report/<key>` is allowed when a `/report/$key` menu
+ * exists), so it keys off `path` rather than the per-entry composite menu key.
+ */
+function buildMenuPathSet(menus: UserMenu[], pathSet = new Set<string>()): Set<string> {
+  for (const menu of menus) {
+    pathSet.add(menu.path);
+
+    if (menu.children) {
+      buildMenuPathSet(menu.children, pathSet);
+    }
+  }
+
+  return pathSet;
 }
 
 function buildMenuItem(menu: UserMenu): MenuItem {
@@ -77,7 +95,7 @@ function buildMenuItem(menu: UserMenu): MenuItem {
   if (type === "directory") {
     return {
       type: "submenu",
-      key: path,
+      key: menuKeyOf(path, menu.meta),
       label: name,
       icon: iconElement,
       children: menu.children ? buildMenuItems(menu.children) : []
@@ -86,7 +104,7 @@ function buildMenuItem(menu: UserMenu): MenuItem {
 
   return {
     type: "item",
-    key: path,
+    key: menuKeyOf(path, menu.meta),
     label: name,
     icon: iconElement
   };
@@ -137,13 +155,13 @@ export function createLayoutRouteOptions<
   return {
     beforeLoad: async (args: LayoutBeforeLoadArgs): Promise<TBeforeLoadContext> => {
       const { location, context } = args;
-      const { isAuthenticated, userMenuMap } = useAppStore.getState();
+      const { isAuthenticated, menuPathSet } = useAppStore.getState();
 
       if (!isAuthenticated) {
         throw redirect({ to: LOGIN_ROUTE_PATH, search: { redirect: location.href } });
       }
 
-      if (userMenuMap && !userMenuMap.has(resolveMenuKey(context, location))) {
+      if (menuPathSet && !menuPathSet.has(resolveMenuKey(context, location))) {
         throw redirect({ to: ACCESS_DENIED_ROUTE_PATH, replace: true });
       }
 
@@ -158,6 +176,7 @@ export function createLayoutRouteOptions<
 
       const userMenuMap = Object.freeze(buildUserMenuMap(menus));
       const menuPathMap = Object.freeze(buildMenuPathMap(menus));
+      const menuPathSet = Object.freeze(buildMenuPathSet(menus));
       const menuItems = Object.freeze(buildMenuItems(menus));
 
       useAppStore.setState({
@@ -165,11 +184,12 @@ export function createLayoutRouteOptions<
         userInfo: Object.freeze(userInfo),
         userMenuMap,
         menuPathMap,
+        menuPathSet,
         menuItems,
         permissionTokens: Object.freeze(new Set(permissionTokens))
       });
 
-      if (!userMenuMap.has(resolveMenuKey(context, location))) {
+      if (!menuPathSet.has(resolveMenuKey(context, location))) {
         throw redirect({ to: ACCESS_DENIED_ROUTE_PATH, replace: true });
       }
 

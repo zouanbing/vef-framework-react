@@ -11,6 +11,7 @@ import { ACCESS_DENIED_ROUTE_PATH } from "../constants";
 import { useAppStore, useTabStore } from "../stores";
 import { handleClientLogout } from "./auth";
 import { onAccessDenied, onUnauthenticated } from "./event";
+import { resolveActiveMenuKey } from "./menu-key";
 
 export interface RouterOptions {
   history: "hash" | "browser";
@@ -82,7 +83,14 @@ export function createRouter({
     const { addTab, setActiveTabId } = useTabStore.getState();
 
     const id = `${fullPath}|${hashKey(search)}|${hashKey(params)}`;
-    const userMenu = userMenuMap?.get(fullPath);
+    const activeMenuKey = userMenuMap
+      ? resolveActiveMenuKey(userMenuMap.values(), {
+          fullPath,
+          params,
+          search
+        })
+      : undefined;
+    const userMenu = activeMenuKey ? userMenuMap?.get(activeMenuKey) : undefined;
 
     if (userMenu) {
       addTab({

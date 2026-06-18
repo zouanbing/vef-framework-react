@@ -1,6 +1,7 @@
-import { Outlet, useLocation, useRouteContext } from "@tanstack/react-router";
+import { Outlet, useRouteContext } from "@tanstack/react-router";
 import { useDocumentTitle } from "@vef-framework-react/hooks";
 
+import { useActiveMenuKey } from "../hooks";
 import { useAppStore } from "../stores";
 
 interface RootProps {
@@ -10,10 +11,10 @@ interface RootProps {
 export function createRootRouteOptions({ appTitle }: RootProps) {
   function RootComponent() {
     const title = useRouteContext({ strict: false, select: context => context.title });
-    const pathname = useLocation({ select: location => location.pathname });
+    const activeMenuKey = useActiveMenuKey();
     const userMenuMap = useAppStore(state => state.userMenuMap);
 
-    const titleToUse = title || userMenuMap?.get(pathname)?.name;
+    const titleToUse = title || (activeMenuKey ? userMenuMap?.get(activeMenuKey)?.name : undefined);
     const documentTitle = titleToUse ? `${appTitle} | ${titleToUse}` : appTitle;
     useDocumentTitle(documentTitle);
 

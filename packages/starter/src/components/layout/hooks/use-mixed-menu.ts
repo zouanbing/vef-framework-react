@@ -4,7 +4,7 @@ import type { UserMenu } from "../../../types";
 
 import { useCallback, useMemo } from "react";
 
-import { useRouteFullPath } from "../../../hooks";
+import { useActiveMenuKey } from "../../../hooks";
 import { useAppStore } from "../../../stores";
 import { useMenuNavigate } from "./use-menu-navigate";
 
@@ -82,13 +82,13 @@ export interface UseMixedMenuResult {
  * @returns The derived mixed-menu data
  */
 export function useMixedMenu(): UseMixedMenuResult {
-  const fullPath = useRouteFullPath();
+  const activeMenuKey = useActiveMenuKey();
   const navigate = useMenuNavigate();
   const menuItems = useAppStore(state => state.menuItems);
   const menuPathMap = useAppStore(state => state.menuPathMap);
   const userMenuMap = useAppStore(state => state.userMenuMap);
 
-  const activeSectionKey = menuPathMap?.get(fullPath)?.[0];
+  const activeSectionKey = menuPathMap?.get(activeMenuKey ?? "")?.[0];
 
   const topLevelItems = useMemo(
     () => (menuItems ?? []).map(item => toTopLevelItem(item)),

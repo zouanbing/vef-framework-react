@@ -9,6 +9,7 @@ import { useHotkeys } from "@vef-framework-react/hooks";
 import { getPinyin, getPinyinInitials } from "@vef-framework-react/shared";
 import { useEffect, useMemo, useState } from "react";
 
+import { menuKeyOf } from "../../../../helpers/menu-key";
 import { useAppStore } from "../../../../stores";
 import { useMenuNavigate } from "../../hooks";
 import { useLayoutStore } from "../../store";
@@ -37,7 +38,7 @@ export function SearchResult({ keyword }: SearchResultProps) {
     () => menuItems.filter(item => match(item, keyword)),
     [menuItems, keyword]
   );
-  const [activeMenuPath, setActiveMenuPath] = useState<string>();
+  const [activeMenuKey, setActiveMenuKey] = useState<string>();
 
   function handleMenuSelect(offset: 1 | -1): void {
     const { length } = matchedMenuItems;
@@ -46,27 +47,27 @@ export function SearchResult({ keyword }: SearchResultProps) {
       return;
     }
 
-    const index = matchedMenuItems.findIndex(item => item.path === activeMenuPath);
+    const index = matchedMenuItems.findIndex(item => menuKeyOf(item.path, item.meta) === activeMenuKey);
 
     if (index === -1) {
       return;
     }
 
-    const newIndex = (index + offset + length) % length;
-    setActiveMenuPath(matchedMenuItems[newIndex]!.path);
+    const next = matchedMenuItems[(index + offset + length) % length]!;
+    setActiveMenuKey(menuKeyOf(next.path, next.meta));
   }
 
   const navigate = useMenuNavigate();
   useHotkeys("esc", () => setIsSearchVisible(false), { enableOnFormTags: true });
   useHotkeys("enter", () => {
-    if (!activeMenuPath) {
+    if (!activeMenuKey) {
       return;
     }
 
-    setIsSearchVisible(false);
-    const menu = userMenuMap?.get(activeMenuPath);
+    const menu = matchedMenuItems.find(item => menuKeyOf(item.path, item.meta) === activeMenuKey);
 
     if (menu) {
+      setIsSearchVisible(false);
       navigate(menu);
     }
   }, { enableOnFormTags: true });
@@ -75,47 +76,47 @@ export function SearchResult({ keyword }: SearchResultProps) {
 
   useEffect(() => {
     if (matchedMenuItems.length > 0) {
-      const { path } = matchedMenuItems[0]!;
+      const first = matchedMenuItems[0]!;
 
-      setActiveMenuPath(path);
+      setActiveMenuKey(menuKeyOf(first.path, first.meta));
     }
   }, [matchedMenuItems]);
 
   return (
     <div css={resultStyle}>
       <AnimatePresence>
-        {matchedMenuItems.map((item, index) => (
-          <motion.div
-            key={item.path}
-            layout
-            animate={{ opacity: 1, y: 0 }}
-            initial={{ opacity: 0, y: 20 }}
-            transition={{
-              duration: 0.3,
-              delay: index * 0.05,
-              ease: "easeOut"
-            }}
-          >
-            <SearchResultItem
-              active={activeMenuPath === item.path}
-              icon={item.icon === null ? undefined : item.icon}
-              label={item.name}
-              onClick={() => {
-                if (activeMenuPath !== item.path) {
-                  setActiveMenuPath(item.path);
-                  return;
-                }
+        {matchedMenuItems.map((item, index) => {
+          const itemKey = menuKeyOf(item.path, item.meta);
 
-                setIsSearchVisible(false);
-                const menu = userMenuMap?.get(item.path);
-
-                if (menu) {
-                  navigate(menu);
-                }
+          return (
+            <motion.div
+              key={itemKey}
+              layout
+              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 20 }}
+              transition={{
+                duration: 0.3,
+                delay: index * 0.05,
+                ease: "easeOut"
               }}
-            />
-          </motion.div>
-        ))}
+            >
+              <SearchResultItem
+                active={activeMenuKey === itemKey}
+                icon={item.icon === null ? undefined : item.icon}
+                label={item.name}
+                onClick={() => {
+                  if (activeMenuKey !== itemKey) {
+                    setActiveMenuKey(itemKey);
+                    return;
+                  }
+
+                  setIsSearchVisible(false);
+                  navigate(item);
+                }}
+              />
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
 
       <AnimatePresence>

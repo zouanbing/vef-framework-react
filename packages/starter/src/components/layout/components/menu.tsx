@@ -5,7 +5,7 @@ import { Menu as MenuInternal } from "@vef-framework-react/components";
 import { useDidUpdate } from "@vef-framework-react/hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useRouteFullPath } from "../../../hooks";
+import { useActiveMenuKey } from "../../../hooks";
 import { useAppStore, useThemeStore } from "../../../stores";
 import { useMenuNavigate } from "../hooks";
 
@@ -52,7 +52,7 @@ export function Menu({
   onSelectMenu
 }: MenuProps) {
   const navigate = useMenuNavigate();
-  const fullPath = useRouteFullPath();
+  const activeMenuKey = useActiveMenuKey();
   const userMenuMap = useAppStore(state => state.userMenuMap);
   const menuPathMap = useAppStore(state => state.menuPathMap);
   const storeMenuItems = useAppStore(state => state.menuItems);
@@ -105,15 +105,15 @@ export function Menu({
       return;
     }
 
-    setOpenedKeys([...menuPathMap?.get(fullPath) ?? []]);
-  }, [fullPath, isSidebarCollapsed, layout, menuPathMap]);
+    setOpenedKeys([...menuPathMap?.get(activeMenuKey ?? "") ?? []]);
+  }, [activeMenuKey, isSidebarCollapsed, layout, menuPathMap]);
   useDidUpdate(() => {
     if (isSidebarCollapsed || layout === "horizontal") {
       return;
     }
 
-    setOpenedKeys([...menuPathMap?.get(fullPath) ?? []]);
-  }, [fullPath, isSidebarCollapsed, layout, menuPathMap]);
+    setOpenedKeys([...menuPathMap?.get(activeMenuKey ?? "") ?? []]);
+  }, [activeMenuKey, isSidebarCollapsed, layout, menuPathMap]);
 
   const handleOpenedKeysChange = useCallback<GetProp<MenuPropsInternal, "onOpenChange">>(
     keys => {
@@ -148,7 +148,7 @@ export function Menu({
       css={menuStyle}
       items={menuItems as never}
       openKeys={openedKeys}
-      selectedKeys={selectedKeys ?? (fullPath ? [fullPath] : [])}
+      selectedKeys={selectedKeys ?? (activeMenuKey ? [activeMenuKey] : [])}
       onOpenChange={handleOpenedKeysChange}
       onSelect={handleSelect}
     />
