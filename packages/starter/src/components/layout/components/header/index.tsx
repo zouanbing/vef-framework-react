@@ -116,7 +116,9 @@ const brandSurfaceStyle = css({
     "--vef-menu-active-bar-height": "0",
     "--vef-menu-active-bar-border-width": "0",
     "--vef-menu-item-padding-inline": "12px",
-    "--vef-menu-horizontal-item-border-radius": "10px",
+    // `background-clip: padding-box` (below) renders the pill at the padding-box radius, i.e.
+    // `border-radius - border-width`. Add the gap border width back so the visible corner stays 10px.
+    "--vef-menu-horizontal-item-border-radius": "calc(10px + var(--vef-spacing-sm) / 2)",
     // Foreground: default 72% white → full white on hover/selected (leaf via horizontal token,
     // parent submenu via subMenu token — antd colors the submenu title from a different token).
     "--vef-menu-item-color": "rgba(255, 255, 255, 0.72)",
@@ -128,11 +130,21 @@ const brandSurfaceStyle = css({
     "--vef-menu-horizontal-item-selected-bg": "rgba(255, 255, 255, 0.18)",
 
     // antd has no token to float a horizontal item or bolden the active one — the only CSS left.
-    // Half the gap per side gives an even var(--vef-spacing-sm) between every pill (leaf or submenu).
+    // NB: inter-pill spacing must NOT come from item `margin-inline` (nor a flex `column-gap`):
+    // antd's rc-overflow measures each item's `offsetWidth`, which excludes both, so it
+    // under-counts the row, keeps one item too many, and the surplus spills over the right-side
+    // actions instead of folding into the `...` indicator. A transparent border IS part of
+    // `offsetWidth`, so rc-overflow counts it; `background-clip: padding-box` then keeps the pill
+    // fill inside that border, leaving the header surface to show through as the gap. The border
+    // is on all four sides (not just inline) so the pill's `border-radius` stays circular — an
+    // inline-only border insets the fill horizontally but not vertically, which squashes the
+    // corners into ellipses. The pill's visible box is preserved by widening `height` and shrinking
+    // `margin-block` by the border width, so only the spacing mechanism changes, not the metrics.
     "& .vef-menu-item, & .vef-menu-submenu": {
-      height: "calc(var(--vef-layout-header-height) - 16px)",
-      marginBlock: "8px",
-      marginInline: "calc(var(--vef-spacing-sm) / 2)",
+      height: "calc(var(--vef-layout-header-height) - 4px)",
+      marginBlock: "2px",
+      border: `calc(var(--vef-spacing-sm) / 2) solid transparent`,
+      backgroundClip: "padding-box",
       lineHeight: "calc(var(--vef-layout-header-height) - 16px)"
     },
     "& .vef-menu-item-selected, & .vef-menu-submenu-selected": {
