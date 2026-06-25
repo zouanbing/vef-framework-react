@@ -7,7 +7,7 @@ import { Select } from "@vef-framework-react/components";
 import { useFieldOptions } from "../../render/data-source-context";
 import { FieldShell } from "../../render/parts/field-shell";
 import { defineFieldDefinition, definePropertyEntry } from "../../types";
-import { allowClearEntry, requiredEntry, sizeEntry } from "../field-entries";
+import { allowClearEntry, columnTypeEntry, requiredEntry, sizeEntry } from "../field-entries";
 
 const selectStyle = { width: "100%" } as const;
 
@@ -105,6 +105,17 @@ const selectProperties: PropertiesDescriptor = [
         read: field => field.showSearch,
         write: (field, showSearch) => { return { ...field, showSearch: showSearch === true }; }
       })
+    ]
+  },
+  {
+    id: "storage",
+    label: "存储",
+    tab: "props",
+    entries: [
+      columnTypeEntry<SelectField>([
+        { value: "string", label: "字符串 (VARCHAR/TEXT)" },
+        { value: "integer", label: "整数 (BIGINT)" }
+      ])
     ]
   },
   {

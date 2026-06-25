@@ -78,6 +78,11 @@ export {
 export { createDefaultMobileRegistry } from "./engine/registry/defaults-mobile";
 export { FormFieldRegistry, type DeviceRegistries } from "./engine/registry/form-field-registry";
 export {
+  inferColumnType,
+  toColumnDefinitions,
+  type ColumnDefinition
+} from "./engine/schema/column-type";
+export {
   cloneBlock,
   insertBlock,
   moveBlock,

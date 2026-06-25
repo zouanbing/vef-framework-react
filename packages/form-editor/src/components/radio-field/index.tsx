@@ -8,7 +8,7 @@ import { useFieldOptions } from "../../render/data-source-context";
 import { FieldShell } from "../../render/parts/field-shell";
 import { OptionsStatus } from "../../render/parts/options-status";
 import { defineFieldDefinition, definePropertyEntry } from "../../types";
-import { optionDirectionEntry, requiredEntry } from "../field-entries";
+import { columnTypeEntry, optionDirectionEntry, requiredEntry } from "../field-entries";
 
 const RadioInput: FC<FieldComponentProps<RadioField, string | number | undefined>> = ({
   disabled,
@@ -112,6 +112,17 @@ const radioProperties: PropertiesDescriptor = [
         write: (field, buttonStyle) => { return { ...field, buttonStyle }; }
       }),
       optionDirectionEntry<RadioField>()
+    ]
+  },
+  {
+    id: "storage",
+    label: "存储",
+    tab: "props",
+    entries: [
+      columnTypeEntry<RadioField>([
+        { value: "string", label: "字符串 (VARCHAR/TEXT)" },
+        { value: "integer", label: "整数 (BIGINT)" }
+      ])
     ]
   },
   {

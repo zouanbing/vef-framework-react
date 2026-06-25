@@ -6,7 +6,7 @@ import { InputNumber } from "@vef-framework-react/components";
 
 import { FieldShell } from "../../render/parts/field-shell";
 import { defineFieldDefinition, definePropertyEntry } from "../../types";
-import { maxValueEntry, messageEntry, minValueEntry, requiredEntry, sizeEntry } from "../field-entries";
+import { columnTypeEntry, maxValueEntry, messageEntry, minValueEntry, requiredEntry, sizeEntry } from "../field-entries";
 
 const inputStyle = { width: "100%" } as const;
 
@@ -162,6 +162,17 @@ const numberProperties: PropertiesDescriptor = [
           return { ...field, precision };
         }
       })
+    ]
+  },
+  {
+    id: "storage",
+    label: "存储",
+    tab: "props",
+    entries: [
+      columnTypeEntry<NumberField>([
+        { value: "integer", label: "整数 (BIGINT)" },
+        { value: "decimal", label: "小数 (DECIMAL)" }
+      ])
     ]
   },
   {

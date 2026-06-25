@@ -1,4 +1,4 @@
-import type { FormField, PropertyEntry, Validatable } from "../types";
+import type { ColumnDataType, FormField, PropertyEntry, PropertyEntryOption, Validatable } from "../types";
 
 import { definePropertyEntry } from "../types";
 
@@ -211,5 +211,29 @@ export function optionDirectionEntry<F extends DirectionalField>(): PropertyEntr
     ],
     read: field => field.direction,
     write: (field, direction) => { return { ...field, direction }; }
+  });
+}
+
+/**
+ * Fields exposing a table-storage column-type override (`columnType`).
+ */
+type ColumnTypedField = FormField & { columnType?: ColumnDataType };
+
+/**
+ * The "数据库列类型" override — pins a field's `columnType` for table storage when
+ * its widget cannot deterministically infer one (number → integer/decimal,
+ * select/radio → string/integer). The "自动" sentinel (empty) clears the override
+ * so the designer infers from the widget. Each adopter passes the concrete
+ * choices its widget allows; "自动" is prepended here so it stays consistent.
+ */
+export function columnTypeEntry<F extends ColumnTypedField>(options: PropertyEntryOption[]): PropertyEntry {
+  return definePropertyEntry<F, string>({
+    id: "columnType",
+    label: "数据库列类型",
+    type: "select",
+    description: "table 存储模式下该字段的列类型;留空按控件自动推断",
+    options: [{ value: "", label: "自动(按控件推断)" }, ...options],
+    read: field => field.columnType ?? "",
+    write: (field, value) => { return { ...field, columnType: value === "" ? undefined : (value as ColumnDataType) }; }
   });
 }

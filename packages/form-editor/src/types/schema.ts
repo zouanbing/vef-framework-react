@@ -68,6 +68,23 @@ interface NodeBase {
 }
 
 /**
+ * Dialect-independent logical column type a keyed field materializes into under
+ * the `table` storage mode. The form designer infers it from the widget (see
+ * `inferColumnType`); the few value-ambiguous widgets (number / select / radio)
+ * expose an override. Mirrors the Go backend's `ColumnDataType`
+ * (`approval/enums.go`); the storage layer maps it to a concrete SQL type.
+ */
+export type ColumnDataType
+  = | "string"
+    | "text"
+    | "integer"
+    | "decimal"
+    | "boolean"
+    | "date"
+    | "datetime"
+    | "json";
+
+/**
  * Data-binding marker. A node that contributes a value to form state carries
  * a `key`. Leaf fields bind a scalar; a {@link SubformNode} binds an array of
  * records scoped under its `key`. Derived structurally so consumer-augmented
@@ -76,6 +93,12 @@ interface NodeBase {
  */
 export interface KeyedNode {
   key: string;
+  /**
+   * Optional override for the field's table-storage column type. Absent means
+   * the designer infers it from the widget; only the ambiguous widgets surface
+   * a picker for it.
+   */
+  columnType?: ColumnDataType;
 }
 
 /**
