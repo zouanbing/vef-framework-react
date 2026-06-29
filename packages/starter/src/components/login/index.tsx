@@ -5,8 +5,9 @@ import type { LoginChallengeRenderer, LoginChallengeRenderers, LoginProps } from
 
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { Alert, Button, Center, Group, Icon, LogoIcon, showSuccessNotification, SplitText, Stack, TypingAnimation, useForm, useThemeTokens } from "@vef-framework-react/components";
+import { isBusinessError } from "@vef-framework-react/core";
 import { useInterval } from "@vef-framework-react/hooks";
-import { encryptUsingRSA, getLocalizedDateTime, noop, z } from "@vef-framework-react/shared";
+import { encryptUsingRSA, getLocalizedDateTime, z } from "@vef-framework-react/shared";
 import {
   LockKeyholeIcon,
   SparklesIcon,
@@ -29,6 +30,25 @@ const leftContentStyle: CSSProperties = {
 
 const userIcon = <Icon component={UserRoundIcon} />;
 const lockIcon = <Icon component={LockKeyholeIcon} />;
+
+const DEFAULT_LOGIN_ERROR = "登录失败, 请稍后重试";
+
+/**
+ * Resolve a user-facing message from an unknown rejection. Business errors
+ * carry the server-provided message verbatim; other errors fall back to their
+ * own message, and non-Error throwables to a generic prompt.
+ */
+function resolveErrorMessage(error: unknown): string {
+  if (isBusinessError(error)) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return DEFAULT_LOGIN_ERROR;
+}
 
 const loginFormSchema = z.object({
   type: z.literal("password"),
@@ -81,6 +101,8 @@ export function Login({
 
   const [pendingChallenge, setPendingChallenge] = useState<PendingChallenge | null>(null);
   const [challengePending, setChallengePending] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [challengeError, setChallengeError] = useState<string | null>(null);
 
   const encrypt = useMemo(() => {
     if (!publicKey) {
@@ -131,13 +153,18 @@ export function Login({
       onSubmit: loginFormSchema
     },
     async onSubmit({ value }) {
+      setLoginError(null);
+
       const credentials = publicKey
         ? encryptUsingRSA(value.credentials, publicKey)
         : value.credentials;
 
-      const result = await onLogin({ ...value, credentials }).catch(noop);
+      let result: LoginResult;
 
-      if (!result) {
+      try {
+        result = await onLogin({ ...value, credentials });
+      } catch (error) {
+        setLoginError(resolveErrorMessage(error));
         return;
       }
 
@@ -151,17 +178,18 @@ export function Login({
     }
 
     setChallengePending(true);
+    setChallengeError(null);
 
     try {
       const result = await onResolveChallenge({
         challengeToken: pendingChallenge.token,
         type: pendingChallenge.challenge.type,
         response
-      }).catch(noop);
+      });
 
-      if (result) {
-        await applyLoginResult(result);
-      }
+      await applyLoginResult(result);
+    } catch (error) {
+      setChallengeError(resolveErrorMessage(error));
     } finally {
       setChallengePending(false);
     }
@@ -170,6 +198,7 @@ export function Login({
   function cancelChallenge() {
     setPendingChallenge(null);
     setChallengePending(false);
+    setChallengeError(null);
   }
 
   return (
@@ -219,6 +248,7 @@ export function Login({
               <ChallengeView
                 challenge={pendingChallenge.challenge}
                 encrypt={encrypt}
+                error={challengeError}
                 pending={challengePending}
                 renderers={challengeRenderers}
                 onCancel={cancelChallenge}
@@ -241,6 +271,16 @@ export function Login({
                 <AppForm>
                   <Form>
                     <Stack gap="medium">
+                      {loginError && (
+                        <Alert
+                          closable
+                          showIcon
+                          message={loginError}
+                          type="error"
+                          onClose={() => setLoginError(null)}
+                        />
+                      )}
+
                       <AppField name="principal">
                         {field => (
                           <field.Input
@@ -285,6 +325,7 @@ export function Login({
 interface ChallengeViewProps {
   challenge: LoginChallenge;
   pending: boolean;
+  error?: string | null;
   renderers?: LoginChallengeRenderers;
   encrypt?: (plaintext: string) => string;
   onResolve: (response: unknown) => Promise<void>;
@@ -294,6 +335,7 @@ interface ChallengeViewProps {
 function ChallengeView({
   challenge,
   pending,
+  error,
   renderers,
   encrypt,
   onResolve,
@@ -339,6 +381,7 @@ function ChallengeView({
       {renderer({
         challenge,
         pending,
+        error,
         encrypt,
         resolve: onResolve,
         cancel: onCancel
