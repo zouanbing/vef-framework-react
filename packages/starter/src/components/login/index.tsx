@@ -35,15 +35,12 @@ const DEFAULT_LOGIN_ERROR = "登录失败, 请稍后重试";
 
 /**
  * Resolve a user-facing message from an unknown rejection. Business errors
- * carry the server-provided message verbatim; other errors fall back to their
- * own message, and non-Error throwables to a generic prompt.
+ * carry the server-provided message verbatim; everything else (network
+ * failures, unexpected runtime errors) falls back to a generic prompt so a raw
+ * technical message is never surfaced to the user.
  */
 function resolveErrorMessage(error: unknown): string {
   if (isBusinessError(error)) {
-    return error.message;
-  }
-
-  if (error instanceof Error) {
     return error.message;
   }
 
@@ -180,19 +177,22 @@ export function Login({
     setChallengePending(true);
     setChallengeError(null);
 
+    let result: LoginResult;
+
     try {
-      const result = await onResolveChallenge({
+      result = await onResolveChallenge({
         challengeToken: pendingChallenge.token,
         type: pendingChallenge.challenge.type,
         response
       });
-
-      await applyLoginResult(result);
     } catch (error) {
       setChallengeError(resolveErrorMessage(error));
+      return;
     } finally {
       setChallengePending(false);
     }
+
+    await applyLoginResult(result);
   }
 
   function cancelChallenge() {
